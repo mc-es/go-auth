@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/joho/godotenv"
 	"github.com/mc-es/go-auth/pkg/logger"
 )
 
@@ -27,6 +28,11 @@ func main() {
 }
 
 func getPort() int {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("No .env file found")
+	}
+
 	val := os.Getenv("PORT")
 	if val == "" {
 		return 8080
