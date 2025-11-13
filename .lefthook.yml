@@ -1,0 +1,14 @@
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      stage_fixed: true
+      glob: "*.go"
+      run: gofmt -w .
+
+    govet:
+      run: go vet ./...
+
+    gomodtidy:
+      stage_fixed: true
+      run: go mod tidy
