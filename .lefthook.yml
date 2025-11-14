@@ -2,6 +2,7 @@ pre-commit:
   parallel: true
   commands:
     golangci:
+      stage_fixed: true
       run: golangci-lint run
     govet:
       run: go vet ./...
