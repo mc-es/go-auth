@@ -1,0 +1,94 @@
+version: "2"
+
+run:
+  go: '1.25'
+  timeout: 3m
+  relative-path-mode: gomod
+  issues-exit-code: 1
+  tests: false
+  modules-download-mode: readonly
+
+output:
+  show-stats: true
+  path-mode: "abs"
+  sort-order:
+    - severity
+    - file
+    - linter
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+      colors: true
+
+issues:
+  max-issues-per-linter: 20
+  max-same-issues: 10
+  uniq-by-line: false
+  new: false
+  fix: true
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+    - golines
+    - swaggo
+  settings:
+    gofumpt:
+      extra-rules: true
+    gci:
+      custom-order: true
+      no-lex-order: false
+      no-inline-comments: true
+      no-prefix-comments: true
+      sections:
+        - standard
+        - default
+        - prefix(github.com/mc-es/go-auth)
+    golines:
+      max-len: 100
+      tab-len: 4
+      shorten-comments: true
+      reformat-tags: true
+      chain-split-dots: true
+
+linters:
+  default: fast
+  enable:
+    - bodyclose
+    - contextcheck
+    - containedctx
+    - depguard
+    - durationcheck
+    - errcheck
+    - errname
+    - exhaustive
+    - exptostd
+    - forbidigo
+    - goconst
+    - gocritic
+    - gosec
+    - nilerr
+    - revive
+    - staticcheck
+    - unparam
+    - varnamelen
+    - wastedassign
+    - wsl_v5
+  disable:
+    - wsl # deprecated
+  settings:
+    exhaustive:
+      ignore-enum-types: "syscall.Errno"
+    depguard:
+      rules:
+        main:
+          list-mode: original
+          files: $all
+          deny:
+            - pkg: "log$"
+              desc: "Use inline logger instead of log package."
+            - pkg: "github.com/pkg/errors"
+              desc: "Use std 'errors' and `fmt.Errorf` instead."

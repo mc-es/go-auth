@@ -1,10 +1,8 @@
 pre-commit:
   parallel: true
   commands:
-    gofmt:
-      stage_fixed: true
-      glob: "*.go"
-      run: gofmt -w .
+    golangci:
+      run: golangci-lint run
 
     govet:
       run: go vet ./...

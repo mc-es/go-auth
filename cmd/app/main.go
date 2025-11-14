@@ -1,3 +1,4 @@
+// Package main is the app's entry point and starts auth service.
 package main
 
 import (
@@ -5,9 +6,18 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
+
 	"github.com/mc-es/go-auth/pkg/logger"
+)
+
+const defaultPort = 8080
+const (
+	readTimeout  = 5 * time.Second
+	writeTimeout = 10 * time.Second
+	idleTimeout  = 120 * time.Second
 )
 
 func main() {
@@ -21,7 +31,10 @@ func main() {
 	); err != nil {
 		panic(err)
 	}
-	defer logger.Sync()
+
+	defer func() {
+		_ = logger.Sync()
+	}()
 
 	port := getPort()
 	startServer(port)
@@ -30,37 +43,45 @@ func main() {
 func getPort() int {
 	err := godotenv.Load()
 	if err != nil {
-		fmt.Println("No .env file found")
+		logger.S().Warnw("No .env file found")
 	}
 
-	val := os.Getenv("PORT")
-	if val == "" {
-		return 8080
+	port, err := strconv.Atoi(os.Getenv("PORT"))
+	if err != nil || port <= 0 {
+		logger.S().Warnw("Invalid PORT value, using default", "PORT", os.Getenv("PORT"))
+
+		return defaultPort
 	}
-	p, err := strconv.Atoi(val)
-	if err != nil || p <= 0 {
-		logger.S().Warnw("Invalid PORT value, using default", "PORT", val)
-		return 8080
-	}
-	return p
+
+	return port
 }
 
 func startServer(port int) {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
 		logger.S().Infow("Incoming request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"remote_addr", r.RemoteAddr,
+			"method", req.Method,
+			"path", req.URL.Path,
+			"remote_addr", req.RemoteAddr,
 		)
-		fmt.Fprintf(w, "Hello from go-auth 👋")
+
+		_, _ = fmt.Fprintf(res, "Hello from go-auth 👋")
 	})
 
 	addr := fmt.Sprintf(":%d", port)
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
+	}
+
 	logger.S().Infow("Server starting...", "port", port)
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	err := server.ListenAndServe()
+	if err != nil {
 		logger.S().Errorw("Server failed...", "error", err)
 	}
 }

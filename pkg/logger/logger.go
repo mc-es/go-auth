@@ -1,4 +1,4 @@
-// Package logger wraps zap with sane defaults and global helpers
+// Package logger wraps zap with sane defaults and global helpers.
 package logger
 
 import (
@@ -19,7 +19,7 @@ var (
 	globalLogger *zap.Logger        // global logger instance
 	globalSugar  *zap.SugaredLogger // cached sugared logger
 	initOnce     sync.Once          // ensures Init runs only once
-	initErr      error              // stores Init error for repeated calls
+	errInit      error              // stores Init error for repeated calls
 )
 
 type config struct {
@@ -50,10 +50,19 @@ type config struct {
 	samplingThereafter int  // log every Nth message afterward
 }
 
-type option func(*config) error
+// Option mutates the logger configuration during construction.
+type Option func(*config) error
 
-// New constructs a zap.Logger based on the provided options
-func New(opts ...option) (*zap.Logger, error) {
+const (
+	encodingJSON    = "json"
+	encodingConsole = "console"
+
+	defaultSamplingInitial    = 100
+	defaultSamplingThereafter = 100
+)
+
+// New constructs a zap.Logger based on the provided options.
+func New(opts ...Option) (*zap.Logger, error) {
 	cfg, err := buildConfig(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("New: %w", err)
@@ -82,6 +91,7 @@ func New(opts ...option) (*zap.Logger, error) {
 	if !cfg.disableStacktrace {
 		options = append(options, zap.AddStacktrace(cfg.stacktraceLevel))
 	}
+
 	if cfg.callerSkip > 0 {
 		options = append(options, zap.AddCallerSkip(cfg.callerSkip))
 	}
@@ -90,211 +100,246 @@ func New(opts ...option) (*zap.Logger, error) {
 	if err != nil {
 		return nil, fmt.Errorf("New(build): %w", err)
 	}
+
 	return logger, nil
 }
 
-// MustNew returns a configured logger or panics if setup fails
-func MustNew(opts ...option) *zap.Logger {
+// MustNew returns a configured logger or panics if setup fails.
+func MustNew(opts ...Option) *zap.Logger {
 	l, err := New(opts...)
 	if err != nil {
 		panic(fmt.Errorf("MustNew: %w", err))
 	}
+
 	return l
 }
 
-// Init initializes the package-level logger if it has not been created
-func Init(opts ...option) error {
+// Init initializes the package-level logger if it has not been created.
+func Init(opts ...Option) error {
 	initOnce.Do(func() {
 		var err error
+
 		globalLogger, err = New(opts...)
 		if err != nil {
-			initErr = fmt.Errorf("logger: Init: %w", err)
+			errInit = fmt.Errorf("logger: Init: %w", err)
+
 			return
 		}
+
 		globalSugar = globalLogger.Sugar()
 	})
-	return initErr
+
+	return errInit
 }
 
-// L returns the global zap.Logger, panics if not initialized
+// L returns the global zap.Logger, panics if not initialized.
 func L() *zap.Logger {
 	if logger := globalLogger; logger != nil {
 		return logger
 	}
+
 	panic("logger.L(): not initialized, call logger.Init(...) at startup")
 }
 
-// S returns a global SugaredLogger derived from the base logger
+// S returns a global SugaredLogger derived from the base logger.
 func S() *zap.SugaredLogger {
 	if sugar := globalSugar; sugar != nil {
 		return sugar
 	}
+
 	panic("logger.S(): not initialized, call logger.Init(...) at startup")
 }
 
-// Sync flushes buffered log entries on the global logger
+// Sync flushes buffered log entries on the global logger.
 func Sync() error {
 	if globalLogger == nil {
 		return nil
 	}
+
 	if err := globalLogger.Sync(); err != nil && !isIgnorableSyncErr(err) {
 		return err
 	}
+
 	return nil
 }
 
-// WithLevel overrides the minimum log level
-func WithLevel(level string) option {
-	return func(c *config) error {
+// WithLevel overrides the minimum log level.
+func WithLevel(level string) Option {
+	return func(cfg *config) error {
 		switch strings.ToLower(strings.TrimSpace(level)) {
 		case "debug":
-			c.level = zapcore.DebugLevel
+			cfg.level = zapcore.DebugLevel
 		case "info":
-			c.level = zapcore.InfoLevel
+			cfg.level = zapcore.InfoLevel
 		case "warn":
-			c.level = zapcore.WarnLevel
+			cfg.level = zapcore.WarnLevel
 		case "error":
-			c.level = zapcore.ErrorLevel
+			cfg.level = zapcore.ErrorLevel
 		case "fatal":
-			c.level = zapcore.FatalLevel
+			cfg.level = zapcore.FatalLevel
 		default:
-			return fmt.Errorf("WithLevel: invalid level %q (allowed: debug, info, warn, error, fatal)", level)
+			return fmt.Errorf(
+				"WithLevel: invalid level %q (allowed: debug, info, warn, error, fatal)",
+				level,
+			)
 		}
+
 		return nil
 	}
 }
 
-// WithEncoding sets the encoder to either json or console output
-func WithEncoding(encoding string) option {
-	return func(c *config) error {
+// WithEncoding sets the encoder to either json or console output.
+func WithEncoding(encoding string) Option {
+	return func(cfg *config) error {
 		enc := strings.TrimSpace(strings.ToLower(encoding))
 		switch enc {
-		case "json", "console":
-			c.encoding = enc
+		case encodingJSON, encodingConsole:
+			cfg.encoding = enc
 		default:
-			return fmt.Errorf("WithEncoding: invalid encoding %q (allowed: json, console)", encoding)
+			return fmt.Errorf(
+				"WithEncoding: invalid encoding %q (allowed: json, console)",
+				encoding,
+			)
 		}
+
 		return nil
 	}
 }
 
-// WithDevelopmentMode enables zap dev mode with color console + short timestamps
-func WithDevelopmentMode() option {
-	return func(c *config) error {
-		c.development = true
-		c.encoding = "console"
-		c.sampling = false
-		if c.timeEncoder == nil {
-			c.timeEncoder = zapcore.TimeEncoderOfLayout(time.TimeOnly)
+// WithDevelopmentMode enables zap dev mode with color console + short timestamps.
+func WithDevelopmentMode() Option {
+	return func(cfg *config) error {
+		cfg.development = true
+		cfg.encoding = encodingConsole
+
+		cfg.sampling = false
+
+		if cfg.timeEncoder == nil {
+			cfg.timeEncoder = zapcore.TimeEncoderOfLayout(time.TimeOnly)
 		}
+
 		return nil
 	}
 }
 
-// WithOutputPaths replaces the main output destinations
-func WithOutputPaths(paths ...string) option {
-	return func(c *config) error {
+// WithOutputPaths replaces the main output destinations.
+func WithOutputPaths(paths ...string) Option {
+	return func(cfg *config) error {
 		if len(paths) > 0 {
-			c.outputPaths = append([]string{}, paths...)
+			cfg.outputPaths = append([]string{}, paths...)
 		}
+
 		return nil
 	}
 }
 
-// WithErrorOutputPaths replaces the error output destinations
-func WithErrorOutputPaths(paths ...string) option {
-	return func(c *config) error {
+// WithErrorOutputPaths replaces the error output destinations.
+func WithErrorOutputPaths(paths ...string) Option {
+	return func(cfg *config) error {
 		if len(paths) > 0 {
-			c.errorOutputPaths = append([]string{}, paths...)
+			cfg.errorOutputPaths = append([]string{}, paths...)
 		}
+
 		return nil
 	}
 }
 
-// WithTimeEncoder customizes how timestamps are rendered
-func WithTimeEncoder(enc zapcore.TimeEncoder) option {
-	return func(c *config) error {
+// WithTimeEncoder customizes how timestamps are rendered.
+func WithTimeEncoder(enc zapcore.TimeEncoder) Option {
+	return func(cfg *config) error {
 		if enc != nil {
-			c.timeEncoder = enc
+			cfg.timeEncoder = enc
 		}
+
 		return nil
 	}
 }
 
-// WithInitialFields attaches the given fields to every log entry
-func WithInitialFields(fields map[string]any) option {
-	return func(c *config) error {
+// WithInitialFields attaches the given fields to every log entry.
+func WithInitialFields(fields map[string]any) Option {
+	return func(cfg *config) error {
 		if len(fields) == 0 {
 			return nil
 		}
-		maps.Copy(c.initialFields, fields)
+
+		maps.Copy(cfg.initialFields, fields)
+
 		return nil
 	}
 }
 
-// WithoutCaller disables caller metadata emission
-func WithoutCaller() option {
-	return func(c *config) error {
-		c.disableCaller = true
+// WithoutCaller disables caller metadata emission.
+func WithoutCaller() Option {
+	return func(cfg *config) error {
+		cfg.disableCaller = true
+
 		return nil
 	}
 }
 
-// WithCallerSkip moves the reported call site up the stack
-func WithCallerSkip(skip int) option {
-	return func(c *config) error {
+// WithCallerSkip moves the reported call site up the stack.
+func WithCallerSkip(skip int) Option {
+	return func(cfg *config) error {
 		if skip > 0 {
-			c.callerSkip = skip
+			cfg.callerSkip = skip
 		}
+
 		return nil
 	}
 }
 
-// WithoutStacktrace disables stacktrace logging
-func WithoutStacktrace() option {
-	return func(c *config) error {
-		c.disableStacktrace = true
+// WithoutStacktrace disables stacktrace logging.
+func WithoutStacktrace() Option {
+	return func(cfg *config) error {
+		cfg.disableStacktrace = true
+
 		return nil
 	}
 }
 
-// WithStacktraceLevel sets the minimum level that triggers a stacktrace
-func WithStacktraceLevel(level string) option {
-	return func(c *config) error {
+// WithStacktraceLevel sets the minimum level that triggers a stacktrace.
+func WithStacktraceLevel(level string) Option {
+	return func(cfg *config) error {
 		switch strings.ToLower(strings.TrimSpace(level)) {
 		case "debug":
-			c.stacktraceLevel = zapcore.DebugLevel
+			cfg.stacktraceLevel = zapcore.DebugLevel
 		case "info":
-			c.stacktraceLevel = zapcore.InfoLevel
+			cfg.stacktraceLevel = zapcore.InfoLevel
 		case "warn":
-			c.stacktraceLevel = zapcore.WarnLevel
+			cfg.stacktraceLevel = zapcore.WarnLevel
 		case "error":
-			c.stacktraceLevel = zapcore.ErrorLevel
+			cfg.stacktraceLevel = zapcore.ErrorLevel
 		case "fatal":
-			c.stacktraceLevel = zapcore.FatalLevel
+			cfg.stacktraceLevel = zapcore.FatalLevel
 		default:
-			return fmt.Errorf("WithStacktraceLevel: invalid level %q (allowed: debug, info, warn, error, fatal)", level)
+			return fmt.Errorf(
+				"WithStacktraceLevel: invalid level %q (allowed: debug, info, warn, error, fatal)",
+				level,
+			)
 		}
+
 		return nil
 	}
 }
 
-// WithSampling enables zap's sampling with custom thresholds
-func WithSampling(initial, thereafter int) option {
-	return func(c *config) error {
+// WithSampling enables zap's sampling with custom thresholds.
+func WithSampling(initial, thereafter int) Option {
+	return func(cfg *config) error {
 		if initial > 0 && thereafter > 0 {
-			c.sampling = true
-			c.samplingInitial = initial
-			c.samplingThereafter = thereafter
+			cfg.sampling = true
+			cfg.samplingInitial = initial
+			cfg.samplingThereafter = thereafter
 		}
+
 		return nil
 	}
 }
 
-// WithoutSampling disables zap's log sampling entirely
-func WithoutSampling() option {
-	return func(c *config) error {
-		c.sampling = false
+// WithoutSampling disables zap's log sampling entirely.
+func WithoutSampling() Option {
+	return func(cfg *config) error {
+		cfg.sampling = false
+
 		return nil
 	}
 }
@@ -318,21 +363,24 @@ func defaultConfig() config {
 		stacktraceLevel:   zapcore.ErrorLevel,
 
 		sampling:           true,
-		samplingInitial:    100,
-		samplingThereafter: 100,
+		samplingInitial:    defaultSamplingInitial,
+		samplingThereafter: defaultSamplingThereafter,
 	}
 }
 
-func buildConfig(opts ...option) (config, error) {
+func buildConfig(opts ...Option) (config, error) {
 	cfg := defaultConfig()
+
 	for _, opt := range opts {
 		if opt == nil {
 			continue
 		}
+
 		if err := opt(&cfg); err != nil {
 			return cfg, err
 		}
 	}
+
 	return cfg, nil
 }
 
@@ -354,9 +402,11 @@ func buildEncoderConfig(cfg config) zapcore.EncoderConfig {
 	if cfg.timeEncoder != nil {
 		encoder.EncodeTime = cfg.timeEncoder
 	}
-	if cfg.development && cfg.encoding == "console" {
+
+	if cfg.development && cfg.encoding == encodingConsole {
 		encoder.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
+
 	return encoder
 }
 
@@ -372,10 +422,12 @@ func isIgnorableSyncErr(err error) bool {
 
 	var pathErr *os.PathError
 	if errors.As(err, &pathErr) {
-		if errno, ok := pathErr.Err.(syscall.Errno); ok && isIgnorableErrno(errno) {
+		var errno syscall.Errno
+		if errors.As(pathErr.Err, &errno) && isIgnorableErrno(errno) {
 			return true
 		}
 	}
+
 	return false
 }
 
