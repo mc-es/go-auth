@@ -8,6 +8,8 @@ pre-commit:
     gomodtidy:
       stage_fixed: true
       run: go mod tidy
+    gomodverify:
+      run: go mod verify
 
 commit-msg:
   parallel: false
