@@ -3,13 +3,17 @@ pre-commit:
   commands:
     golangci:
       run: golangci-lint run
-
     govet:
       run: go vet ./...
-
     gomodtidy:
       stage_fixed: true
       run: go mod tidy
+
+commit-msg:
+  parallel: false
+  commands:
+    commitcheck:
+      run: go run ./cmd/commitcheck {1}
 
 pre-push:
   parallel: false

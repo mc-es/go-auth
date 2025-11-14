@@ -344,6 +344,7 @@ func WithoutSampling() Option {
 	}
 }
 
+// defaultConfig seeds a config with standard production-ready defaults.
 func defaultConfig() config {
 	return config{
 		level:       zapcore.InfoLevel,
@@ -368,6 +369,7 @@ func defaultConfig() config {
 	}
 }
 
+// buildConfig applies a sequence of Option mutators over the defaultConfig.
 func buildConfig(opts ...Option) (config, error) {
 	cfg := defaultConfig()
 
@@ -384,6 +386,7 @@ func buildConfig(opts ...Option) (config, error) {
 	return cfg, nil
 }
 
+// buildEncoderConfig maps the config values to zap's encoder settings.
 func buildEncoderConfig(cfg config) zapcore.EncoderConfig {
 	encoder := zapcore.EncoderConfig{
 		TimeKey:        "ts",
@@ -410,6 +413,7 @@ func buildEncoderConfig(cfg config) zapcore.EncoderConfig {
 	return encoder
 }
 
+// isIgnorableSyncErr filters out known benign errors from zap.Sync().
 func isIgnorableSyncErr(err error) bool {
 	if err == nil {
 		return false
@@ -431,6 +435,7 @@ func isIgnorableSyncErr(err error) bool {
 	return false
 }
 
+// isIgnorableErrno reports whether the provided errno is harmless for sync operations.
 func isIgnorableErrno(errno syscall.Errno) bool {
 	switch errno {
 	case syscall.ENOTTY, syscall.EINVAL, syscall.EPIPE, syscall.ENOSYS:

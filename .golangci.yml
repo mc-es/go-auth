@@ -82,6 +82,13 @@ linters:
   settings:
     exhaustive:
       ignore-enum-types: "syscall.Errno"
+    mnd:
+      checks:
+        - argument
+        - case
+        - operation
+        - return
+        - assign
     depguard:
       rules:
         main:
