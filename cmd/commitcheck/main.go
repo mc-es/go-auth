@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/mc-es/go-auth/pkg/logger"
+	"go-auth/pkg/logger"
 )
 
 // commitType enumerates the allowed commit categories.

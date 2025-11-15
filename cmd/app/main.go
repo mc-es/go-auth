@@ -14,7 +14,7 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/mc-es/go-auth/pkg/logger"
+	"go-auth/pkg/logger"
 )
 
 const defaultPort = 8080

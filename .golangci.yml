@@ -46,7 +46,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/mc-es/go-auth)
+        - prefix(go-auth)
     golines:
       max-len: 100
       tab-len: 4

@@ -1,4 +1,4 @@
-module github.com/mc-es/go-auth
+module go-auth
 
 go 1.25.4
 
