@@ -82,6 +82,14 @@ linters:
   settings:
     exhaustive:
       ignore-enum-types: "syscall.Errno"
+    tagalign:
+      align: true
+      sort: false
+      order:
+        - env
+        - envSeparator
+        - validate
+        - envDefault
     mnd:
       checks:
         - argument

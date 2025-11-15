@@ -1,4 +1,4 @@
-// Package main is the app's entry point and starts auth service.
+// Package app is the app's entry point and starts auth service.
 package main
 
 import (
@@ -12,12 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
-
+	"go-auth/config"
 	"go-auth/pkg/logger"
 )
 
-const defaultPort = 8080
 const (
 	readTimeout     = 5 * time.Second
 	writeTimeout    = 10 * time.Second
@@ -26,50 +24,63 @@ const (
 )
 
 func main() {
-	if err := logger.Init(
-		logger.WithDevelopmentMode(),
-		logger.WithLevel("debug"),
-		logger.WithInitialFields(map[string]any{
-			"app":     "go-auth",
-			"version": "1.0.0",
-		}),
-	); err != nil {
+	cfg, err := config.Load()
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "config load failed: %v\n", err)
+
+		os.Exit(1)
+	}
+
+	if err := initLogger(cfg); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "logger init failed: %v\n", err)
 
 		os.Exit(1)
 	}
 
-	if err := godotenv.Load(); err != nil {
-		logger.S().Warnw("No .env file found, continuing with existing environment")
-	}
-
-	if err := run(); err != nil {
+	err = run(cfg)
+	if err != nil {
 		logger.S().Errorw("Application stopped with error", "error", err)
-
-		_ = logger.Sync()
-
-		os.Exit(1)
 	}
 
 	_ = logger.Sync()
+
+	if err != nil {
+		os.Exit(1)
+	}
 }
 
-func getPort() int {
-	port, err := strconv.Atoi(os.Getenv("PORT"))
-	if err != nil || port <= 0 {
-		logger.S().Warnw("Invalid PORT value, using default", "PORT", os.Getenv("PORT"))
+func initLogger(cfg *config.Config) error {
+	isDev := cfg.Server.Mode == "dev"
 
-		return defaultPort
+	opts := []logger.Option{
+		logger.WithInitialFields(map[string]any{
+			"app":     cfg.Server.App,
+			"version": "1.0.0",
+			"mode":    cfg.Server.Mode,
+		}),
 	}
 
-	return port
+	if isDev {
+		opts = append(opts,
+			logger.WithDevelopmentMode(),
+			logger.WithLevel("debug"),
+		)
+	} else {
+		opts = append(opts,
+			logger.WithLevel("info"),
+		)
+	}
+
+	return logger.Init(opts...)
 }
 
-func run() error {
-	port := getPort()
-	server := newServer(port)
+func run(cfg *config.Config) error {
+	server := newServer(cfg.Server)
 
-	logger.S().Infow("Server starting...", "port", port)
+	logger.S().Infow("Server starting...",
+		"host", cfg.Server.Host,
+		"port", cfg.Server.Port,
+	)
 
 	serverErrors := make(chan error, 1)
 	go startServerListener(server, serverErrors)
@@ -82,12 +93,12 @@ func run() error {
 	return waitForShutdown(server, serverErrors, quit)
 }
 
-func newServer(port int) *http.Server {
+func newServer(cfg config.ServerConfig) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", rootHandler)
 
 	return &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
+		Addr:         cfg.Host + ":" + strconv.FormatUint(uint64(cfg.Port), 10),
 		Handler:      mux,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
