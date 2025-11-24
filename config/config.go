@@ -20,15 +20,19 @@ type ServerConfig struct {
 
 // DatabaseConfig stores connection parameters for the primary database.
 type DatabaseConfig struct {
-	URL            string        `env:"DB_URL"             validate:"required,mongodb_connection_string"`
-	MaxConnections int           `env:"DB_MAX_CONNECTIONS" validate:"min=0,max=30"                       envDefault:"10"`
-	Timeout        time.Duration `env:"DB_TIMEOUT"         validate:"min=0,max=30s"                      envDefault:"5s"`
+	Name        string        `env:"DB_NAME"          validate:"required"`
+	URL         string        `env:"DB_URL"           validate:"required,mongodb_connection_string"`
+	MaxConns    uint64        `env:"DB_MAX_CONNS"     validate:"min=0,max=30,gtfield=MinConns"      envDefault:"10"`
+	MinConns    uint64        `env:"DB_MIN_CONNS"     validate:"min=0,max=10,ltfield=MaxConns"      envDefault:"5"`
+	MaxIdleTime time.Duration `env:"DB_MAX_IDLE_TIME" validate:"min=0,max=30m"                      envDefault:"30m"`
+	ConnectTO   time.Duration `env:"DB_CONNECT_TO"    validate:"min=0,max=30s"                      envDefault:"10s"`
+	SelectionTO time.Duration `env:"DB_SELECTION_TO"  validate:"min=0,max=30s"                      envDefault:"5s"`
 }
 
 // AuthConfig configures access and refresh token lifetimes.
 type AuthConfig struct {
-	AccessTTL  time.Duration `env:"AUTH_ACCESS_TTL"  validate:"min=0,max=1h"    envDefault:"15m"`
-	RefreshTTL time.Duration `env:"AUTH_REFRESH_TTL" validate:"min=0,max=1000h" envDefault:"720h"` // 30 days
+	AccessTTL  time.Duration `env:"AUTH_ACCESS_TTL"  validate:"min=0,max=1h,ltfield=RefreshTTL"   envDefault:"15m"`
+	RefreshTTL time.Duration `env:"AUTH_REFRESH_TTL" validate:"min=0,max=1000h,gtfield=AccessTTL" envDefault:"720h"`
 }
 
 // SecurityConfig holds security-related secrets and parameters.
@@ -92,19 +96,9 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// setupValidator initializes the validator instance and attaches struct-level validations.
+// setupValidator initializes the validator instance.
 func setupValidator() {
 	validateOnce.Do(func() {
 		validate = validator.New(validator.WithRequiredStructEnabled())
-		validate.RegisterStructValidation(authConfigStructLevelValidation, AuthConfig{})
 	})
-}
-
-// authConfigStructLevelValidation enforces that refresh tokens live longer than access tokens.
-func authConfigStructLevelValidation(sl validator.StructLevel) {
-	ac := sl.Current().Interface().(AuthConfig)
-
-	if ac.RefreshTTL <= ac.AccessTTL {
-		sl.ReportError(ac.RefreshTTL, "RefreshTTL", "RefreshTTL", "gtfield", "AccessTTL")
-	}
 }

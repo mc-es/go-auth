@@ -151,7 +151,7 @@ func readMessage(path string) (msg string, err error) {
 
 	file, err := os.Open(cleanPath)
 	if err != nil {
-		return "", fmt.Errorf("closing %w", err)
+		return "", fmt.Errorf("opening %w", err)
 	}
 
 	defer func() {
