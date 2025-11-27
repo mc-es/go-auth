@@ -20,13 +20,17 @@ type ServerConfig struct {
 
 // DatabaseConfig stores connection parameters for the primary database.
 type DatabaseConfig struct {
-	Name        string        `env:"DB_NAME"          validate:"required"`
-	URL         string        `env:"DB_URL"           validate:"required,mongodb_connection_string"`
-	MaxConns    uint64        `env:"DB_MAX_CONNS"     validate:"min=0,max=30,gtfield=MinConns"      envDefault:"10"`
-	MinConns    uint64        `env:"DB_MIN_CONNS"     validate:"min=0,max=10,ltfield=MaxConns"      envDefault:"5"`
-	MaxIdleTime time.Duration `env:"DB_MAX_IDLE_TIME" validate:"min=0,max=30m"                      envDefault:"30m"`
-	ConnectTO   time.Duration `env:"DB_CONNECT_TO"    validate:"min=0,max=30s"                      envDefault:"10s"`
-	SelectionTO time.Duration `env:"DB_SELECTION_TO"  validate:"min=0,max=30s"                      envDefault:"5s"`
+	Name          string        `env:"DB_NAME"            validate:"required"`
+	URL           string        `env:"DB_URL"             validate:"required,mongodb_connection_string"`
+	MaxConns      uint64        `env:"DB_MAX_CONNS"       validate:"min=1,max=200,gtfield=MinConns"     envDefault:"100"`
+	MinConns      uint64        `env:"DB_MIN_CONNS"       validate:"min=0,max=50"                       envDefault:"20"`
+	MaxIdleTime   time.Duration `env:"DB_MAX_IDLE_TIME"   validate:"min=0,max=30m"                      envDefault:"30m"`
+	ConnectTO     time.Duration `env:"DB_CONNECT_TO"      validate:"min=0,max=30s"                      envDefault:"10s"`
+	SelectionTO   time.Duration `env:"DB_SELECTION_TO"    validate:"min=0,max=30s"                      envDefault:"5s"`
+	PingTO        time.Duration `env:"DB_PING_TO"         validate:"min=0,max=30s"                      envDefault:"5s"`
+	CloseTO       time.Duration `env:"DB_CLOSE_TO"        validate:"min=0,max=60s"                      envDefault:"10s"`
+	HealthCheckIT time.Duration `env:"DB_HEALTH_CHECK_IT" validate:"min=1m,max=60m"                     envDefault:"10m"`
+	HealthCheckTO time.Duration `env:"DB_HEALTH_CHECK_TO" validate:"min=1s,max=30s,gtfield=PingTO"      envDefault:"10s"`
 }
 
 // AuthConfig configures access and refresh token lifetimes.

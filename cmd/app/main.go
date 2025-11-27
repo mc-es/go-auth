@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"go-auth/config"
+	"go-auth/pkg/database"
 	"go-auth/pkg/logger"
 )
 
@@ -75,6 +76,18 @@ func initLogger(cfg *config.Config) error {
 }
 
 func run(cfg *config.Config) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	dbInstance, err := database.NewDatabase(cfg.Database)
+	if err != nil {
+		logger.S().Errorw("Database initialization failed", "error", err)
+
+		return err
+	}
+
+	dbInstance.StartHealthCheck(ctx)
+
 	server := newServer(cfg.Server)
 
 	logger.S().Infow("Server starting...",
@@ -90,7 +103,7 @@ func run(cfg *config.Config) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(quit)
 
-	return waitForShutdown(server, serverErrors, quit)
+	return waitForShutdown(cancel, server, dbInstance, serverErrors, quit)
 }
 
 func newServer(cfg config.ServerConfig) *http.Server {
@@ -124,31 +137,54 @@ func startServerListener(server *http.Server, serverErrors chan<- error) {
 	}
 }
 
-func waitForShutdown(server *http.Server, serverErrors <-chan error, quit <-chan os.Signal) error {
+func waitForShutdown(
+	cancel context.CancelFunc,
+	server *http.Server,
+	dbInstance *database.Database,
+	serverErrors <-chan error,
+	quit <-chan os.Signal,
+) error {
 	select {
 	case err, ok := <-serverErrors:
 		if ok && err != nil {
 			logger.S().Errorw("Server failed", "error", err)
+			cancel()
 
 			return err
 		}
 
 		logger.S().Infow("Server stopped without signal")
+		cancel()
 
 		return nil
 
 	case sig := <-quit:
-		return shutdownServer(server, serverErrors, sig)
+		return shutdownServer(cancel, server, dbInstance, serverErrors, sig)
 	}
 }
 
-func shutdownServer(server *http.Server, serverErrors <-chan error, sig os.Signal) error {
+func shutdownServer(
+	cancel context.CancelFunc,
+	server *http.Server,
+	dbInstance *database.Database,
+	serverErrors <-chan error,
+	sig os.Signal,
+) error {
 	logger.S().Infow("Shutdown signal received", "signal", sig.String())
 
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
+	cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	dbCtx, dbCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer dbCancel()
+
+	if err := dbInstance.Close(dbCtx); err != nil {
+		logger.S().Errorw("Database shutdown failed", "error", err)
+	}
+
+	serverCtx, serverCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer serverCancel()
+
+	if err := server.Shutdown(serverCtx); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			logger.S().Errorw(
 				"Forced shutdown: context deadline exceeded",
