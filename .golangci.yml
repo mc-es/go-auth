@@ -80,23 +80,6 @@ linters:
   disable:
     - wsl # deprecated
   settings:
-    exhaustive:
-      ignore-enum-types: "syscall.Errno"
-    tagalign:
-      align: true
-      sort: false
-      order:
-        - env
-        - envSeparator
-        - validate
-        - envDefault
-    mnd:
-      checks:
-        - argument
-        - case
-        - operation
-        - return
-        - assign
     depguard:
       rules:
         main:
@@ -107,3 +90,23 @@ linters:
               desc: "Use inline logger instead of log package."
             - pkg: "github.com/pkg/errors"
               desc: "Use std 'errors' and `fmt.Errorf` instead."
+    exhaustive:
+      ignore-enum-types: "syscall.Errno"
+    mnd:
+      checks:
+        - argument
+        - case
+        - operation
+        - return
+        - assign
+    tagalign:
+      align: true
+      sort: false
+      order:
+        - env
+        - envSeparator
+        - validate
+        - envDefault
+    varnamelen:
+      ignore-names:
+        - i # for loops

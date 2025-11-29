@@ -30,7 +30,7 @@ const (
 )
 
 const (
-	defaultMaxCommitLen = 100
+	defaultMaxCommitLen = 120
 	defaultScopeMaxLen  = 10
 	defaultScopeMinLen  = 2
 
@@ -76,7 +76,7 @@ func main() {
 func run() error {
 	if err := logger.Init(
 		logger.WithDevelopmentMode(),
-		logger.WithLevel("info"),
+		logger.WithLevel(logger.LevelInfo),
 		logger.WithoutStacktrace(),
 	); err != nil {
 		panic(err)

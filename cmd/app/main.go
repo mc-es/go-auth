@@ -64,11 +64,11 @@ func initLogger(cfg *config.Config) error {
 	if isDev {
 		opts = append(opts,
 			logger.WithDevelopmentMode(),
-			logger.WithLevel("debug"),
+			logger.WithLevel(logger.LevelDebug),
 		)
 	} else {
 		opts = append(opts,
-			logger.WithLevel("info"),
+			logger.WithLevel(logger.LevelInfo),
 		)
 	}
 

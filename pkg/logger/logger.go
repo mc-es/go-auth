@@ -4,10 +4,7 @@ package logger
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"os"
-	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -15,63 +12,17 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	globalLogger *zap.Logger        // global logger instance
-	globalSugar  *zap.SugaredLogger // cached sugared logger
-	initOnce     sync.Once          // ensures Init runs only once
-	errInit      error              // stores Init error for repeated calls
-)
-
-type config struct {
-	// core
-	level       zapcore.Level // debug, info, warn, error, fatal
-	encoding    string        // json, console
-	development bool          // enables dev-friendly settings
-
-	// outputs
-	outputPaths      []string // log output targets
-	errorOutputPaths []string // error output targets
-
-	// formatting
-	timeEncoder   zapcore.TimeEncoder // custom time encoder
-	initialFields map[string]any      // predefined structured fields
-
-	// caller
-	disableCaller bool // disable caller info
-	callerSkip    int  // skip levels for wrapped loggers
-
-	// stacktrace
-	disableStacktrace bool          // disable stacktrace output
-	stacktraceLevel   zapcore.Level // minimum level that triggers a stacktrace
-
-	// sampling
-	sampling           bool // enable log sampling
-	samplingInitial    int  // log every message until this count
-	samplingThereafter int  // log every Nth message afterward
-}
-
-// Option mutates the logger configuration during construction.
-type Option func(*config) error
-
-const (
-	encodingJSON    = "json"
-	encodingConsole = "console"
-
-	defaultSamplingInitial    = 100
-	defaultSamplingThereafter = 100
-)
-
-// New constructs a zap.Logger based on the provided options.
-func New(opts ...Option) (*zap.Logger, error) {
+// New constructs a Logger based on the provided options.
+func New(opts ...Option) (Logger, error) {
 	cfg, err := buildConfig(opts...)
 	if err != nil {
 		return nil, fmt.Errorf("New: %w", err)
 	}
 
 	zapCfg := zap.Config{
-		Level:             zap.NewAtomicLevelAt(cfg.level),
+		Level:             zap.NewAtomicLevelAt(zapcore.Level(cfg.level)),
 		Development:       cfg.development,
-		Encoding:          cfg.encoding,
+		Encoding:          string(cfg.encoding),
 		EncoderConfig:     buildEncoderConfig(cfg),
 		OutputPaths:       cfg.outputPaths,
 		ErrorOutputPaths:  cfg.errorOutputPaths,
@@ -89,7 +40,7 @@ func New(opts ...Option) (*zap.Logger, error) {
 
 	var options []zap.Option
 	if !cfg.disableStacktrace {
-		options = append(options, zap.AddStacktrace(cfg.stacktraceLevel))
+		options = append(options, zap.AddStacktrace(zapcore.Level(cfg.stacktraceLevel)))
 	}
 
 	if cfg.callerSkip > 0 {
@@ -101,17 +52,22 @@ func New(opts ...Option) (*zap.Logger, error) {
 		return nil, fmt.Errorf("New(build): %w", err)
 	}
 
-	return logger, nil
+	return &zapLogger{Logger: logger}, nil
 }
 
-// MustNew returns a configured logger or panics if setup fails.
-func MustNew(opts ...Option) *zap.Logger {
-	l, err := New(opts...)
+// NewSugar constructs a SugarLogger based on the provided options.
+func NewSugar(opts ...Option) (SugarLogger, error) {
+	logger, err := New(opts...)
 	if err != nil {
-		panic(fmt.Errorf("MustNew: %w", err))
+		return nil, fmt.Errorf("NewSugar: %w", err)
 	}
 
-	return l
+	zapL, ok := logger.(*zapLogger)
+	if !ok {
+		return nil, fmt.Errorf("NewSugar: unexpected logger type")
+	}
+
+	return &zapSugarLogger{SugaredLogger: zapL.zap().Sugar()}, nil
 }
 
 // Init initializes the package-level logger if it has not been created.
@@ -126,14 +82,21 @@ func Init(opts ...Option) error {
 			return
 		}
 
-		globalSugar = globalLogger.Sugar()
+		zapL, ok := globalLogger.(*zapLogger)
+		if !ok {
+			errInit = fmt.Errorf("logger: Init: unexpected logger type")
+
+			return
+		}
+
+		globalSugar = &zapSugarLogger{SugaredLogger: zapL.zap().Sugar()}
 	})
 
 	return errInit
 }
 
-// L returns the global zap.Logger, panics if not initialized.
-func L() *zap.Logger {
+// L returns the global Logger, panics if not initialized.
+func L() Logger {
 	if logger := globalLogger; logger != nil {
 		return logger
 	}
@@ -141,8 +104,8 @@ func L() *zap.Logger {
 	panic("logger.L(): not initialized, call logger.Init(...) at startup")
 }
 
-// S returns a global SugaredLogger derived from the base logger.
-func S() *zap.SugaredLogger {
+// S returns the global SugarLogger, panics if not initialized.
+func S() SugarLogger {
 	if sugar := globalSugar; sugar != nil {
 		return sugar
 	}
@@ -163,192 +126,11 @@ func Sync() error {
 	return nil
 }
 
-// WithLevel overrides the minimum log level.
-func WithLevel(level string) Option {
-	return func(cfg *config) error {
-		switch strings.ToLower(strings.TrimSpace(level)) {
-		case "debug":
-			cfg.level = zapcore.DebugLevel
-		case "info":
-			cfg.level = zapcore.InfoLevel
-		case "warn":
-			cfg.level = zapcore.WarnLevel
-		case "error":
-			cfg.level = zapcore.ErrorLevel
-		case "fatal":
-			cfg.level = zapcore.FatalLevel
-		default:
-			return fmt.Errorf(
-				"WithLevel: invalid level %q (allowed: debug, info, warn, error, fatal)",
-				level,
-			)
-		}
-
-		return nil
-	}
-}
-
-// WithEncoding sets the encoder to either json or console output.
-func WithEncoding(encoding string) Option {
-	return func(cfg *config) error {
-		enc := strings.TrimSpace(strings.ToLower(encoding))
-		switch enc {
-		case encodingJSON, encodingConsole:
-			cfg.encoding = enc
-		default:
-			return fmt.Errorf(
-				"WithEncoding: invalid encoding %q (allowed: json, console)",
-				encoding,
-			)
-		}
-
-		return nil
-	}
-}
-
-// WithDevelopmentMode enables zap dev mode with color console + short timestamps.
-func WithDevelopmentMode() Option {
-	return func(cfg *config) error {
-		cfg.development = true
-		cfg.encoding = encodingConsole
-
-		cfg.sampling = false
-
-		if cfg.timeEncoder == nil {
-			cfg.timeEncoder = zapcore.TimeEncoderOfLayout(time.TimeOnly)
-		}
-
-		return nil
-	}
-}
-
-// WithOutputPaths replaces the main output destinations.
-func WithOutputPaths(paths ...string) Option {
-	return func(cfg *config) error {
-		if len(paths) > 0 {
-			cfg.outputPaths = append([]string{}, paths...)
-		}
-
-		return nil
-	}
-}
-
-// WithErrorOutputPaths replaces the error output destinations.
-func WithErrorOutputPaths(paths ...string) Option {
-	return func(cfg *config) error {
-		if len(paths) > 0 {
-			cfg.errorOutputPaths = append([]string{}, paths...)
-		}
-
-		return nil
-	}
-}
-
-// WithTimeEncoder customizes how timestamps are rendered.
-func WithTimeEncoder(enc zapcore.TimeEncoder) Option {
-	return func(cfg *config) error {
-		if enc != nil {
-			cfg.timeEncoder = enc
-		}
-
-		return nil
-	}
-}
-
-// WithInitialFields attaches the given fields to every log entry.
-func WithInitialFields(fields map[string]any) Option {
-	return func(cfg *config) error {
-		if len(fields) == 0 {
-			return nil
-		}
-
-		maps.Copy(cfg.initialFields, fields)
-
-		return nil
-	}
-}
-
-// WithoutCaller disables caller metadata emission.
-func WithoutCaller() Option {
-	return func(cfg *config) error {
-		cfg.disableCaller = true
-
-		return nil
-	}
-}
-
-// WithCallerSkip moves the reported call site up the stack.
-func WithCallerSkip(skip int) Option {
-	return func(cfg *config) error {
-		if skip > 0 {
-			cfg.callerSkip = skip
-		}
-
-		return nil
-	}
-}
-
-// WithoutStacktrace disables stacktrace logging.
-func WithoutStacktrace() Option {
-	return func(cfg *config) error {
-		cfg.disableStacktrace = true
-
-		return nil
-	}
-}
-
-// WithStacktraceLevel sets the minimum level that triggers a stacktrace.
-func WithStacktraceLevel(level string) Option {
-	return func(cfg *config) error {
-		switch strings.ToLower(strings.TrimSpace(level)) {
-		case "debug":
-			cfg.stacktraceLevel = zapcore.DebugLevel
-		case "info":
-			cfg.stacktraceLevel = zapcore.InfoLevel
-		case "warn":
-			cfg.stacktraceLevel = zapcore.WarnLevel
-		case "error":
-			cfg.stacktraceLevel = zapcore.ErrorLevel
-		case "fatal":
-			cfg.stacktraceLevel = zapcore.FatalLevel
-		default:
-			return fmt.Errorf(
-				"WithStacktraceLevel: invalid level %q (allowed: debug, info, warn, error, fatal)",
-				level,
-			)
-		}
-
-		return nil
-	}
-}
-
-// WithSampling enables zap's sampling with custom thresholds.
-func WithSampling(initial, thereafter int) Option {
-	return func(cfg *config) error {
-		if initial > 0 && thereafter > 0 {
-			cfg.sampling = true
-			cfg.samplingInitial = initial
-			cfg.samplingThereafter = thereafter
-		}
-
-		return nil
-	}
-}
-
-// WithoutSampling disables zap's log sampling entirely.
-func WithoutSampling() Option {
-	return func(cfg *config) error {
-		cfg.sampling = false
-
-		return nil
-	}
-}
-
 // defaultConfig seeds a config with standard production-ready defaults.
 func defaultConfig() config {
 	return config{
-		level:       zapcore.InfoLevel,
-		encoding:    "json",
+		level:       LevelInfo,
+		encoding:    EncodingJson,
 		development: false,
 
 		outputPaths:      []string{"stdout"},
@@ -361,7 +143,7 @@ func defaultConfig() config {
 		callerSkip:    0,
 
 		disableStacktrace: false,
-		stacktraceLevel:   zapcore.ErrorLevel,
+		stacktraceLevel:   LevelError,
 
 		sampling:           true,
 		samplingInitial:    defaultSamplingInitial,
@@ -406,7 +188,7 @@ func buildEncoderConfig(cfg config) zapcore.EncoderConfig {
 		encoder.EncodeTime = cfg.timeEncoder
 	}
 
-	if cfg.development && cfg.encoding == encodingConsole {
+	if cfg.development && cfg.encoding == EncodingConsole {
 		encoder.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
 
@@ -426,7 +208,6 @@ func isIgnorableSyncErr(err error) bool {
 
 	var pathErr *os.PathError
 	if errors.As(err, &pathErr) {
-		var errno syscall.Errno
 		if errors.As(pathErr.Err, &errno) && isIgnorableErrno(errno) {
 			return true
 		}
@@ -443,4 +224,9 @@ func isIgnorableErrno(errno syscall.Errno) bool {
 	default:
 		return false
 	}
+}
+
+// zap returns the underlying *zap.Logger from zapLogger.
+func (z *zapLogger) zap() *zap.Logger {
+	return z.Logger
 }
