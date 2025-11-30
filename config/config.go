@@ -10,16 +10,17 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// ServerConfig contains runtime information for the HTTP server.
-type ServerConfig struct {
-	App  string `env:"SERVER_APP"  validate:"required"`
-	Host string `env:"SERVER_HOST" validate:"hostname|ip"    envDefault:"0.0.0.0"`
-	Port uint   `env:"SERVER_PORT" validate:"port"           envDefault:"8080"`
-	Mode string `env:"SERVER_MODE" validate:"oneof=dev prod" envDefault:"dev"`
+// Server holds runtime information for the HTTP server.
+type Server struct {
+	App     string `env:"SERVER_APP"     validate:"required"`
+	Version string `env:"SERVER_VERSION" validate:"required"`
+	Host    string `env:"SERVER_HOST"    validate:"hostname|ip"    envDefault:"0.0.0.0"`
+	Port    uint   `env:"SERVER_PORT"    validate:"port"           envDefault:"8080"`
+	Mode    string `env:"SERVER_MODE"    validate:"oneof=dev prod" envDefault:"dev"`
 }
 
-// DatabaseConfig stores connection parameters for the primary database.
-type DatabaseConfig struct {
+// Database stores connection parameters for the primary database.
+type Database struct {
 	Name          string        `env:"DB_NAME"            validate:"required"`
 	URL           string        `env:"DB_URL"             validate:"required,mongodb_connection_string"`
 	MaxConns      uint64        `env:"DB_MAX_CONNS"       validate:"min=1,max=200,gtfield=MinConns"     envDefault:"100"`
@@ -33,26 +34,26 @@ type DatabaseConfig struct {
 	HealthCheckTO time.Duration `env:"DB_HEALTH_CHECK_TO" validate:"min=1s,max=30s,gtfield=PingTO"      envDefault:"10s"`
 }
 
-// AuthConfig configures access and refresh token lifetimes.
-type AuthConfig struct {
+// Auth stores access and refresh token lifetimes.
+type Auth struct {
 	AccessTTL  time.Duration `env:"AUTH_ACCESS_TTL"  validate:"min=0,max=1h,ltfield=RefreshTTL"   envDefault:"15m"`
 	RefreshTTL time.Duration `env:"AUTH_REFRESH_TTL" validate:"min=0,max=1000h,gtfield=AccessTTL" envDefault:"720h"`
 }
 
-// SecurityConfig holds security-related secrets and parameters.
-type SecurityConfig struct {
+// Security holds security-related secrets and parameters.
+type Security struct {
 	JWTSecret string `env:"SECURITY_JWT_SECRET" validate:"required,min=24"`
 	HashCost  int    `env:"SECURITY_HASH_COST"  validate:"min=8,max=16"    envDefault:"12"`
 }
 
-// RateLimitConfig limits repeated requests from a source.
-type RateLimitConfig struct {
+// RateLimit limits repeated requests from a source.
+type RateLimit struct {
 	Requests int           `env:"RATE_LIMIT_REQUESTS" validate:"min=0,max=10" envDefault:"5"`
 	Duration time.Duration `env:"RATE_LIMIT_DURATION" validate:"min=0,max=2m" envDefault:"1m"`
 }
 
-// SMTPConfig contains credentials and settings for outgoing email.
-type SMTPConfig struct {
+// SMTP contains credentials and settings for outgoing email.
+type SMTP struct {
 	Host     string `env:"SMTP_HOST"     validate:"required,hostname|ip"`
 	Port     uint   `env:"SMTP_PORT"     validate:"required,port"`
 	Username string `env:"SMTP_USERNAME" validate:"required"`
@@ -60,21 +61,21 @@ type SMTPConfig struct {
 	From     string `env:"SMTP_FROM"     validate:"required,email"`
 }
 
-// CORSConfig defines cross-origin access rules for the API.
-type CORSConfig struct {
+// CORS defines cross-origin access rules for the API.
+type CORS struct {
 	AllowedOrigins []string `env:"CORS_ALLOWED_ORIGINS" envSeparator:"," validate:"dive"`
 	AllowedMethods []string `env:"CORS_ALLOWED_METHODS" envSeparator:"," validate:"dive,oneof=GET POST PUT DELETE OPTIONS"`
 }
 
-// Config bundles all configuration sections loaded from the environment.
+// Config stores all configuration sections loaded from the environment.
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Auth     AuthConfig
-	Security SecurityConfig
-	Rate     RateLimitConfig
-	SMTP     SMTPConfig
-	CORS     CORSConfig
+	Server   Server
+	Database Database
+	Auth     Auth
+	Security Security
+	Rate     RateLimit
+	SMTP     SMTP
+	CORS     CORS
 }
 
 var (
@@ -82,7 +83,7 @@ var (
 	validateOnce sync.Once
 )
 
-// Load reads environment variables into a Config instance.
+// Load reads environment variables into a Config struct.
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -100,7 +101,7 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// setupValidator initializes the validator instance.
+// setupValidator initializes the validator struct.
 func setupValidator() {
 	validateOnce.Do(func() {
 		validate = validator.New(validator.WithRequiredStructEnabled())

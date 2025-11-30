@@ -56,7 +56,7 @@ func initLogger(cfg *config.Config) error {
 	opts := []logger.Option{
 		logger.WithInitialFields(map[string]any{
 			"app":     cfg.Server.App,
-			"version": "1.0.0",
+			"version": cfg.Server.Version,
 			"mode":    cfg.Server.Mode,
 		}),
 	}
@@ -106,7 +106,7 @@ func run(cfg *config.Config) error {
 	return waitForShutdown(cancel, server, dbInstance, serverErrors, quit)
 }
 
-func newServer(cfg config.ServerConfig) *http.Server {
+func newServer(cfg config.Server) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", rootHandler)
 
