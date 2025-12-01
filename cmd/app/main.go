@@ -17,13 +17,6 @@ import (
 	"go-auth/pkg/logger"
 )
 
-const (
-	readTimeout     = 5 * time.Second
-	writeTimeout    = 10 * time.Second
-	idleTimeout     = 120 * time.Second
-	shutdownTimeout = 10 * time.Second
-)
-
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -41,23 +34,25 @@ func main() {
 	err = run(cfg)
 	if err != nil {
 		logger.S().Errorw("Application stopped with error", "error", err)
-	}
 
-	_ = logger.Sync()
+		_ = logger.Sync()
 
-	if err != nil {
 		os.Exit(1)
 	}
+
+	logger.S().Infow("Application stopped gracefully")
+
+	_ = logger.Sync()
 }
 
 func initLogger(cfg *config.Config) error {
-	isDev := cfg.Server.Mode == "dev"
+	isDev := cfg.Server.Env == "dev"
 
 	opts := []logger.Option{
 		logger.WithInitialFields(map[string]any{
 			"app":     cfg.Server.App,
 			"version": cfg.Server.Version,
-			"mode":    cfg.Server.Mode,
+			"env":     cfg.Server.Env,
 		}),
 	}
 
@@ -79,20 +74,40 @@ func run(cfg *config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dbInstance, err := database.NewDatabase(cfg.Database)
+	dbInstance, err := database.NewDatabase(ctx, cfg.Database)
 	if err != nil {
-		logger.S().Errorw("Database initialization failed", "error", err)
-
-		return err
+		return fmt.Errorf("database init: %w", err)
 	}
 
-	dbInstance.StartHealthCheck(ctx)
+	defer func() {
+		if err := dbInstance.Close(); err != nil {
+			logger.S().Warnw("Database connection close failed during cleanup", "error", err)
+		}
+	}()
+
+	logger.S().Infow("Database connected", "database", cfg.Database.Name)
+
+	if version, err := dbInstance.GetDBVersion(ctx); err == nil {
+		logger.S().Infow("Database version", "db_version", version)
+	} else {
+		logger.S().Warnw("Could not fetch database version", "error", err)
+	}
+
+	monitor, err := database.NewMonitor(
+		dbInstance,
+		cfg.Database.HealthCheckIT,
+		cfg.Database.HealthCheckTO,
+	)
+	if err != nil {
+		return fmt.Errorf("monitor init: %w", err)
+	}
+
+	monitor.Start(ctx)
 
 	server := newServer(cfg.Server)
 
 	logger.S().Infow("Server starting...",
-		"host", cfg.Server.Host,
-		"port", cfg.Server.Port,
+		"address", server.Addr,
 	)
 
 	serverErrors := make(chan error, 1)
@@ -103,7 +118,15 @@ func run(cfg *config.Config) error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(quit)
 
-	return waitForShutdown(cancel, server, dbInstance, serverErrors, quit)
+	return waitForShutdown(
+		cancel,
+		server,
+		monitor,
+		dbInstance,
+		serverErrors,
+		quit,
+		cfg.Server.ShutdownTO,
+	)
 }
 
 func newServer(cfg config.Server) *http.Server {
@@ -113,19 +136,13 @@ func newServer(cfg config.Server) *http.Server {
 	return &http.Server{
 		Addr:         cfg.Host + ":" + strconv.FormatUint(uint64(cfg.Port), 10),
 		Handler:      mux,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-		IdleTimeout:  idleTimeout,
+		ReadTimeout:  cfg.ReadTO,
+		WriteTimeout: cfg.WriteTO,
+		IdleTimeout:  cfg.IdleTO,
 	}
 }
 
-func rootHandler(res http.ResponseWriter, req *http.Request) {
-	logger.S().Infow("Incoming request",
-		"method", req.Method,
-		"path", req.URL.Path,
-		"remote_addr", req.RemoteAddr,
-	)
-
+func rootHandler(res http.ResponseWriter, _ *http.Request) {
 	_, _ = fmt.Fprintf(res, "Hello from go-auth 👋")
 }
 
@@ -140,70 +157,87 @@ func startServerListener(server *http.Server, serverErrors chan<- error) {
 func waitForShutdown(
 	cancel context.CancelFunc,
 	server *http.Server,
-	dbInstance *database.Database,
+	monitor database.Monitor,
+	dbInstance database.Database,
 	serverErrors <-chan error,
 	quit <-chan os.Signal,
+	shutdownTO time.Duration,
 ) error {
 	select {
 	case err, ok := <-serverErrors:
-		if ok && err != nil {
-			logger.S().Errorw("Server failed", "error", err)
+		if !ok {
 			cancel()
 
-			return err
+			return nil
 		}
 
-		logger.S().Infow("Server stopped without signal")
+		logger.S().Errorw("Server failed", "error", err)
+
+		monitor.Stop()
+
 		cancel()
 
-		return nil
+		if err := dbInstance.Close(); err != nil {
+			logger.S().Warnw("Database shutdown failed", "error", err)
+		}
 
+		return err
 	case sig := <-quit:
-		return shutdownServer(cancel, server, dbInstance, serverErrors, sig)
+		return shutdownServer(cancel, server, monitor, dbInstance, serverErrors, sig, shutdownTO)
 	}
 }
 
 func shutdownServer(
 	cancel context.CancelFunc,
 	server *http.Server,
-	dbInstance *database.Database,
+	monitor database.Monitor,
+	dbInstance database.Database,
 	serverErrors <-chan error,
 	sig os.Signal,
+	shutdownTO time.Duration,
 ) error {
 	logger.S().Infow("Shutdown signal received", "signal", sig.String())
 
-	cancel()
-
-	dbCtx, dbCancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer dbCancel()
-
-	if err := dbInstance.Close(dbCtx); err != nil {
-		logger.S().Errorw("Database shutdown failed", "error", err)
-	}
-
-	serverCtx, serverCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	serverCtx, serverCancel := context.WithTimeout(context.Background(), shutdownTO)
 	defer serverCancel()
 
-	if err := server.Shutdown(serverCtx); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			logger.S().Errorw(
-				"Forced shutdown: context deadline exceeded",
-				"timeout", shutdownTimeout,
-			)
-		} else {
-			logger.S().Errorw("Graceful shutdown failed", "error", err)
+	var shutdownErr error
+
+	if err := server.Shutdown(serverCtx); err == nil {
+		logger.S().Infow("Server traffic stopped")
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		logger.S().Warnw("Server shutdown timed out, forcing exit", "timeout", shutdownTO)
+
+		shutdownErr = err
+	} else {
+		logger.S().Errorw("Server shutdown failed", "error", err)
+		shutdownErr = err
+	}
+
+	cancel()
+	monitor.Stop()
+
+	if err := dbInstance.Close(); err != nil {
+		logger.S().Warnw("Database shutdown failed", "error", err)
+
+		if shutdownErr == nil {
+			shutdownErr = err
 		}
-
-		return err
+	} else {
+		logger.S().Infow("Database connection closed")
 	}
 
-	logger.S().Infow("Server stopped gracefully")
+	select {
+	case err := <-serverErrors:
+		if err != nil {
+			logger.S().Errorw("Server error during shutdown", "error", err)
 
-	if err, ok := <-serverErrors; ok && err != nil {
-		logger.S().Errorw("Server failed during shutdown", "error", err)
-
-		return err
+			if shutdownErr == nil {
+				shutdownErr = err
+			}
+		}
+	default:
 	}
 
-	return nil
+	return shutdownErr
 }

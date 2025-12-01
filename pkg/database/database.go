@@ -4,36 +4,23 @@ package database
 import (
 	"context"
 	"errors"
-	"net/url"
-	"strings"
-	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 
 	"go-auth/config"
-	"go-auth/pkg/logger"
 )
 
-// Database wraps MongoDB client and database instances with connection management.
-type Database struct {
-	Client   *mongo.Client         // The MongoDB client instance.
-	Database *mongo.Database       // The MongoDB database instance.
-	config   config.DatabaseConfig // The database configuration.
-	health   *HealthMonitor        // The health monitor instance.
-}
-
 // NewDatabase creates a new Database instance.
-func NewDatabase(cfg config.DatabaseConfig) (*Database, error) {
-	start := time.Now()
-
-	logger.S().Infow("Initializing database connection",
-		"database", cfg.Name,
-		"max_connections", cfg.MaxConns,
-		"min_connections", cfg.MinConns,
-		"max_idle_time", cfg.MaxIdleTime,
-		"connect_timeout", cfg.ConnectTO,
-	)
+func NewDatabase(ctx context.Context, cfg config.Database) (Database, error) {
+	retrier := newRetrier(retryConfig{
+		MaxRetries:        cfg.MaxRetries,
+		InitialBackoff:    cfg.RetryBackoff,
+		MaxBackoffTime:    defaultMaxBackoff,
+		BackoffMultiplier: defaultBackoffMultiplier,
+		InitialRetryQuota: defaultInitialRetryQuota,
+	})
 
 	opts := options.Client().
 		ApplyURI(cfg.URL).
@@ -44,81 +31,80 @@ func NewDatabase(cfg config.DatabaseConfig) (*Database, error) {
 		SetConnectTimeout(cfg.ConnectTO).
 		SetServerSelectionTimeout(cfg.SelectionTO)
 
-	connectCtx, connectCancel := context.WithTimeout(context.Background(), cfg.ConnectTO)
-	defer connectCancel()
+	var client *mongo.Client
 
-	client, err := mongo.Connect(connectCtx, opts)
-	if err != nil {
-		return nil, WrapErrorWithMetadata(operationConnect, errConnectionFailed, map[string]any{
-			"error":    err.Error(),
-			"duration": time.Since(start),
+	connection := createConnection(cfg, opts, &client)
+
+	if err := retrier.Do(ctx, connection); err != nil {
+		if client != nil {
+			disconnectCtx, disconnectCancel := context.WithTimeout(
+				context.WithoutCancel(ctx),
+				cfg.CloseTO,
+			)
+			_ = client.Disconnect(disconnectCtx)
+
+			disconnectCancel()
+		}
+
+		return nil, wrapDbError(operationRetry, err, map[string]any{
 			"database": cfg.Name,
 		})
 	}
 
-	pingCtx, pingCancel := context.WithTimeout(context.Background(), cfg.PingTO)
-	defer pingCancel()
-
-	if err := client.Ping(pingCtx, nil); err != nil {
-		_ = client.Disconnect(context.Background())
-
-		return nil, WrapErrorWithMetadata(operationPing, errPingFailed, map[string]any{
-			"error":    err.Error(),
-			"duration": time.Since(start),
-			"database": cfg.Name,
-		})
-	}
-
-	logger.S().Debugw("Database connected successfully",
-		"database", cfg.Name,
-		"url", maskConnectionString(cfg.URL),
-		"duration", time.Since(start),
-	)
-
-	database := &Database{
-		Client:   client,
-		Database: client.Database(cfg.Name),
-		config:   cfg,
-	}
-	database.health = NewHealthMonitor(database.Ping)
-
-	return database, nil
+	return &database{
+		client:  client,
+		config:  cfg,
+		retrier: retrier,
+	}, nil
 }
 
 // Ping checks database connectivity.
-func (db *Database) Ping(ctx context.Context) error {
-	start := time.Now()
+func (db *database) Ping(ctx context.Context) error {
+	return db.retrier.Do(ctx, func(ctx context.Context) error {
+		return db.client.Ping(ctx, readpref.Primary())
+	})
+}
 
-	pingCtx, cancel := context.WithTimeout(ctx, db.config.PingTO)
-	defer cancel()
+// GetDBVersion gets the database version.
+func (db *database) GetDBVersion(ctx context.Context) (string, error) {
+	var version string
 
-	if err := db.Client.Ping(pingCtx, nil); err != nil {
-		return WrapErrorWithMetadata(operationPing, errPingFailed, map[string]any{
-			"error":    err.Error(),
-			"duration": time.Since(start),
+	versionOp := func(opCtx context.Context) error {
+		var result struct {
+			Version string `bson:"version"`
+		}
+
+		command := map[string]any{"buildInfo": 1}
+
+		err := db.client.Database("admin").RunCommand(opCtx, command).Decode(&result)
+		if err != nil {
+			return wrapDbError(operationGetVersion, err, map[string]any{
+				"database": db.config.Name,
+			})
+		}
+
+		version = result.Version
+
+		return nil
+	}
+
+	if err := db.retrier.Do(ctx, versionOp); err != nil {
+		return "", wrapDbError(operationGetVersion, err, map[string]any{
 			"database": db.config.Name,
 		})
 	}
 
-	return nil
+	return version, nil
 }
 
-// Close disconnects the database and stops the health check goroutine.
-func (db *Database) Close(ctx context.Context) error {
-	start := time.Now()
-
-	if db.health != nil {
-		db.health.StopHealthCheck()
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, db.config.CloseTO)
+// Close disconnects the database.
+func (db *database) Close() error {
+	closeCtx, cancel := context.WithTimeout(context.Background(), db.config.CloseTO)
 	defer cancel()
 
-	if err := db.Client.Disconnect(ctx); err != nil &&
+	if err := db.client.Disconnect(closeCtx); err != nil &&
 		!errors.Is(err, mongo.ErrClientDisconnected) {
-		return WrapErrorWithMetadata(operationDisconnect, errDisconnectFailed, map[string]any{
-			"error":    err.Error(),
-			"duration": time.Since(start),
+		return wrapDbError(operationDisconnect, err, map[string]any{
 			"database": db.config.Name,
 		})
 	}
@@ -126,39 +112,42 @@ func (db *Database) Close(ctx context.Context) error {
 	return nil
 }
 
-// StartHealthCheck starts the health check goroutine.
-func (db *Database) StartHealthCheck(ctx context.Context) {
-	if db.health != nil {
-		cfg := HealthCheckConfig{
-			Interval: db.config.HealthCheckIT,
-			Timeout:  db.config.HealthCheckTO,
+// createConnection creates a connection function that connects and pings the database.
+func createConnection(
+	cfg config.Database,
+	opts *options.ClientOptions,
+	client **mongo.Client,
+) func(context.Context) error {
+	return func(ctx context.Context) error {
+		connectCtx, connectCancel := context.WithTimeout(ctx, cfg.ConnectTO)
+		defer connectCancel()
+
+		clientLocal, err := mongo.Connect(connectCtx, opts)
+		if err != nil {
+			return wrapDbError(operationConnect, err, map[string]any{
+				"database": cfg.Name,
+			})
 		}
-		db.health.StartHealthCheck(ctx, cfg)
-	}
-}
 
-// maskConnectionString masks the password in MongoDB connection strings.
-func maskConnectionString(rawURL string) string {
-	if rawURL == "" {
-		return rawURL
-	}
+		pingCtx, pingCancel := context.WithTimeout(ctx, cfg.PingTO)
+		defer pingCancel()
 
-	if !strings.HasPrefix(rawURL, "mongodb://") && !strings.HasPrefix(rawURL, "mongodb+srv://") {
-		return rawURL
-	}
+		if err := clientLocal.Ping(pingCtx, readpref.Primary()); err != nil {
+			disconnectCtx, disconnectCancel := context.WithTimeout(
+				context.WithoutCancel(ctx),
+				cfg.CloseTO,
+			)
+			_ = clientLocal.Disconnect(disconnectCtx)
 
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
-		return rawURL
-	}
+			disconnectCancel()
 
-	if parsedURL.User != nil {
-		if _, hasPassword := parsedURL.User.Password(); hasPassword {
-			parsedURL.User = url.UserPassword(parsedURL.User.Username(), "***")
-		} else {
-			parsedURL.User = url.User(parsedURL.User.Username())
+			return wrapDbError(operationPing, err, map[string]any{
+				"database": cfg.Name,
+			})
 		}
-	}
 
-	return parsedURL.String()
+		*client = clientLocal
+
+		return nil
+	}
 }

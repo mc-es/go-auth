@@ -12,11 +12,15 @@ import (
 
 // Server holds runtime information for the HTTP server.
 type Server struct {
-	App     string `env:"SERVER_APP"     validate:"required"`
-	Version string `env:"SERVER_VERSION" validate:"required"`
-	Host    string `env:"SERVER_HOST"    validate:"hostname|ip"    envDefault:"0.0.0.0"`
-	Port    uint   `env:"SERVER_PORT"    validate:"port"           envDefault:"8080"`
-	Mode    string `env:"SERVER_MODE"    validate:"oneof=dev prod" envDefault:"dev"`
+	App        string        `env:"SERVER_APP"         validate:"required"`
+	Version    string        `env:"SERVER_VERSION"     validate:"required"`
+	Host       string        `env:"SERVER_HOST"        validate:"hostname|ip"    envDefault:"0.0.0.0"`
+	Port       uint          `env:"SERVER_PORT"        validate:"port"           envDefault:"8080"`
+	Env        string        `env:"SERVER_ENV"         validate:"oneof=dev prod" envDefault:"dev"`
+	ReadTO     time.Duration `env:"SERVER_READ_TO"     validate:"min=0,max=30s"  envDefault:"5s"`
+	WriteTO    time.Duration `env:"SERVER_WRITE_TO"    validate:"min=0,max=30s"  envDefault:"10s"`
+	IdleTO     time.Duration `env:"SERVER_IDLE_TO"     validate:"min=0,max=5m"   envDefault:"120s"`
+	ShutdownTO time.Duration `env:"SERVER_SHUTDOWN_TO" validate:"min=0,max=30s"  envDefault:"10s"`
 }
 
 // Database stores connection parameters for the primary database.
@@ -32,12 +36,14 @@ type Database struct {
 	CloseTO       time.Duration `env:"DB_CLOSE_TO"        validate:"min=0,max=60s"                      envDefault:"10s"`
 	HealthCheckIT time.Duration `env:"DB_HEALTH_CHECK_IT" validate:"min=1m,max=60m"                     envDefault:"10m"`
 	HealthCheckTO time.Duration `env:"DB_HEALTH_CHECK_TO" validate:"min=1s,max=30s,gtfield=PingTO"      envDefault:"10s"`
+	MaxRetries    int           `env:"DB_MAX_RETRIES"     validate:"min=0,max=10"                       envDefault:"3"`
+	RetryBackoff  time.Duration `env:"DB_RETRY_BACKOFF"   validate:"min=0,max=30s"                      envDefault:"100ms"`
 }
 
 // Auth stores access and refresh token lifetimes.
 type Auth struct {
-	AccessTTL  time.Duration `env:"AUTH_ACCESS_TTL"  validate:"min=0,max=1h,ltfield=RefreshTTL"   envDefault:"15m"`
-	RefreshTTL time.Duration `env:"AUTH_REFRESH_TTL" validate:"min=0,max=1000h,gtfield=AccessTTL" envDefault:"720h"`
+	AccessTTL  time.Duration `env:"AUTH_ACCESS_TTL"  validate:"min=0,max=1h,ltfield=RefreshTTL" envDefault:"15m"`
+	RefreshTTL time.Duration `env:"AUTH_REFRESH_TTL" validate:"min=0,max=1000h"                 envDefault:"720h"`
 }
 
 // Security holds security-related secrets and parameters.

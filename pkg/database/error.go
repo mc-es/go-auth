@@ -12,36 +12,29 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// Error represents a database error.
-type Error struct {
-	operation string         // The operation that caused the error
-	err       error          // The underlying error
-	metadata  map[string]any // Additional metadata about the error
+// dbError represents a database error.
+type dbError struct {
+	operation string         // Name of the database operation that failed
+	err       error          // Underlying error that occurred
+	metadata  map[string]any // Additional context about the error
 }
 
-// Operation constants for database operations.
+// Operation names.
 const (
-	operationConnect       = "connect"
-	operationDisconnect    = "disconnect"
-	operationPing          = "ping"
-	operationRetry         = "retry"
-	operationHealthCheck   = "health_check"
-	operationPeriodicCheck = "periodic_check"
+	// Database.
+	operationConnect    = "connect"
+	operationDisconnect = "disconnect"
+	operationPing       = "ping"
+	operationGetVersion = "get_version"
+
+	// Monitor.
+	operationMonitor = "monitor"
+
+	// Retry.
+	operationRetry = "retry"
 )
 
-// Database error constants.
-var (
-	errConnectionFailed = errors.New("database connection failed")
-	errDisconnectFailed = errors.New("database disconnect failed")
-	errPingFailed       = errors.New("database ping failed")
-	errRetryExhausted   = errors.New("retry attempts exhausted")
-	errContextCancelled = errors.New("operation cancelled by context")
-	errCheckInProgress  = errors.New("check in progress")
-	errOperationFailed  = errors.New("database operation failed")
-	errDeadlineExceeded = errors.New("operation deadline exceeded")
-)
-
-// retryableErrorLabels is a list of labels that indicate a retryable error.
+// retryableErrorLabels contains MongoDB error labels.
 var retryableErrorLabels = []string{
 	"TransientTransactionError",
 	"UnknownTransactionCommitResult",
@@ -49,7 +42,7 @@ var retryableErrorLabels = []string{
 	"NetworkError",
 }
 
-// retryableSyscallErrors is a list of syscall errors that indicate a retryable error.
+// retryableSyscallErrors contains system call errors.
 var retryableSyscallErrors = []error{
 	syscall.ECONNREFUSED,
 	syscall.ECONNRESET,
@@ -58,9 +51,9 @@ var retryableSyscallErrors = []error{
 	syscall.EHOSTUNREACH,
 }
 
-// NewError creates a new database error.
-func NewError(operation string, err error, metadata ...map[string]any) *Error {
-	dbErr := &Error{
+// newDbError creates a new database error.
+func newDbError(operation string, err error, metadata ...map[string]any) *dbError {
+	dbErr := &dbError{
 		operation: operation,
 		err:       err,
 	}
@@ -72,8 +65,8 @@ func NewError(operation string, err error, metadata ...map[string]any) *Error {
 	return dbErr
 }
 
-// Error returns the error message.
-func (e *Error) Error() string {
+// Error returns a formatted error message.
+func (e *dbError) Error() string {
 	if len(e.metadata) > 0 {
 		return fmt.Sprintf("database %s failed: %v (metadata: %v)", e.operation, e.err, e.metadata)
 	}
@@ -82,17 +75,17 @@ func (e *Error) Error() string {
 }
 
 // Unwrap returns the underlying error.
-func (e *Error) Unwrap() error {
+func (e *dbError) Unwrap() error {
 	return e.err
 }
 
-// WrapErrorWithMetadata wraps an error with metadata.
-func WrapErrorWithMetadata(operation string, err error, metadata map[string]any) error {
+// wrapDbError wraps a database error with metadata.
+func wrapDbError(operation string, err error, metadata map[string]any) error {
 	if err == nil {
 		return nil
 	}
 
-	var dbErr *Error
+	var dbErr *dbError
 	if errors.As(err, &dbErr) {
 		merged := make(map[string]any)
 		if dbErr.metadata != nil {
@@ -103,23 +96,28 @@ func WrapErrorWithMetadata(operation string, err error, metadata map[string]any)
 			maps.Copy(merged, metadata)
 		}
 
-		return &Error{
+		return &dbError{
 			operation: operation,
 			err:       err,
 			metadata:  merged,
 		}
 	}
 
-	return NewError(operation, err, metadata)
+	return newDbError(operation, err, metadata)
 }
 
-// IsRetryableError checks if the error is retryable.
-func IsRetryableError(err error) bool {
+// isContextError checks if the error is due to context cancellation or deadline.
+func isContextError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+// isRetryableError determines if an error should trigger a retry.
+func isRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if isContextError(err) {
 		return false
 	}
 
