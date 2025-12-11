@@ -4,6 +4,9 @@ package database
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -16,21 +19,23 @@ import (
 // NewDatabase creates a new Database instance.
 func NewDatabase(ctx context.Context, cfg config.Database) (Database, error) {
 	retrier := newRetrier(retryConfig{
-		MaxRetries:        cfg.MaxRetries,
-		InitialBackoff:    cfg.RetryBackoff,
+		MaxRetries:        cfg.Resilience.MaxRetries,
+		InitialBackoff:    cfg.Resilience.RetryBackoff,
 		MaxBackoffTime:    defaultMaxBackoff,
 		BackoffMultiplier: defaultBackoffMultiplier,
 		InitialRetryQuota: defaultInitialRetryQuota,
 	})
 
+	hostPort := net.JoinHostPort(cfg.Connection.Host, strconv.FormatUint(cfg.Connection.Port, 10))
+	uri := fmt.Sprintf("mongodb://%s/%s", hostPort, cfg.Connection.Name)
+
 	opts := options.Client().
-		ApplyURI(cfg.URL).
-		SetAppName(cfg.Name).
-		SetMaxPoolSize(cfg.MaxConns).
-		SetMinPoolSize(cfg.MinConns).
-		SetMaxConnIdleTime(cfg.MaxIdleTime).
-		SetConnectTimeout(cfg.ConnectTO).
-		SetServerSelectionTimeout(cfg.SelectionTO)
+		ApplyURI(uri).
+		SetAppName(cfg.Connection.Name).
+		SetMaxPoolSize(cfg.Pool.MaxOpen).
+		SetMinPoolSize(cfg.Pool.MinOpen).
+		SetMaxConnIdleTime(cfg.Pool.MaxIdleTime).
+		SetConnectTimeout(cfg.Timeout.Connect)
 
 	var client *mongo.Client
 
@@ -38,14 +43,14 @@ func NewDatabase(ctx context.Context, cfg config.Database) (Database, error) {
 
 	if err := retrier.Do(ctx, connection); err != nil {
 		if client != nil {
-			disconnectCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.CloseTO)
-			defer cancel()
+			dcCtx, dcCancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.Timeout.Close)
+			defer dcCancel()
 
-			_ = client.Disconnect(disconnectCtx)
+			_ = client.Disconnect(dcCtx)
 		}
 
 		return nil, wrapDbError(operationRetry, err, map[string]any{
-			"database": cfg.Name,
+			"database": cfg.Connection.Name,
 		})
 	}
 
@@ -55,10 +60,10 @@ func NewDatabase(ctx context.Context, cfg config.Database) (Database, error) {
 		retrier: retrier,
 	}
 
-	version, err := fetchVersion(ctx, client, retrier, cfg.Name)
+	version, err := fetchVersion(ctx, client, retrier, cfg.Connection.Name)
 	if err != nil {
 		logger.S().Warnw("Database connected but failed to fetch version info",
-			"database", cfg.Name,
+			"db_name", cfg.Connection.Name,
 			"error", err,
 		)
 
@@ -66,7 +71,7 @@ func NewDatabase(ctx context.Context, cfg config.Database) (Database, error) {
 	}
 
 	logger.S().Infow("Database connected",
-		"database", cfg.Name,
+		"db_name", cfg.Connection.Name,
 		"db_version", version,
 	)
 
@@ -82,13 +87,13 @@ func (db *database) Ping(ctx context.Context) error {
 
 // Close disconnects the database.
 func (db *database) Close() error {
-	closeCtx, cancel := context.WithTimeout(context.Background(), db.config.CloseTO)
+	closeCtx, cancel := context.WithTimeout(context.Background(), db.config.Timeout.Close)
 	defer cancel()
 
 	if err := db.client.Disconnect(closeCtx); err != nil &&
 		!errors.Is(err, mongo.ErrClientDisconnected) {
 		return wrapDbError(operationDisconnect, err, map[string]any{
-			"database": db.config.Name,
+			"db_name": db.config.Connection.Name,
 		})
 	}
 
@@ -102,27 +107,27 @@ func createConnection(
 	client **mongo.Client,
 ) func(context.Context) error {
 	return func(ctx context.Context) error {
-		connectCtx, cancel := context.WithTimeout(ctx, cfg.ConnectTO)
-		defer cancel()
+		connectCtx, connectCancel := context.WithTimeout(ctx, cfg.Timeout.Connect)
+		defer connectCancel()
 
 		clientLocal, err := mongo.Connect(connectCtx, opts)
 		if err != nil {
 			return wrapDbError(operationConnect, err, map[string]any{
-				"database": cfg.Name,
+				"db_name": cfg.Connection.Name,
 			})
 		}
 
-		pingCtx, cancel := context.WithTimeout(ctx, cfg.PingTO)
-		defer cancel()
+		pingCtx, pingCancel := context.WithTimeout(ctx, cfg.Timeout.Ping)
+		defer pingCancel()
 
 		if err := clientLocal.Ping(pingCtx, readpref.Primary()); err != nil {
-			disconnectCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.CloseTO)
-			defer cancel()
+			dcCtx, dcCancel := context.WithTimeout(context.WithoutCancel(ctx), cfg.Timeout.Close)
+			defer dcCancel()
 
-			_ = clientLocal.Disconnect(disconnectCtx)
+			_ = clientLocal.Disconnect(dcCtx)
 
 			return wrapDbError(operationPing, err, map[string]any{
-				"database": cfg.Name,
+				"db_name": cfg.Connection.Name,
 			})
 		}
 
@@ -151,7 +156,7 @@ func fetchVersion(
 		err := client.Database("admin").RunCommand(opCtx, command).Decode(&result)
 		if err != nil {
 			return wrapDbError(operationGetVersion, err, map[string]any{
-				"database": dbName,
+				"db_name": dbName,
 			})
 		}
 

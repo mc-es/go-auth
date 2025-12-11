@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -50,9 +51,9 @@ func initLogger(cfg *config.Config) error {
 
 	opts := []logger.Option{
 		logger.WithInitialFields(map[string]any{
-			"app":     cfg.Server.App,
-			"version": cfg.Server.Version,
-			"env":     cfg.Server.Env,
+			"app_env":     cfg.Server.Env,
+			"app_name":    cfg.Server.AppName,
+			"app_version": cfg.Server.Version,
 		}),
 	}
 
@@ -87,8 +88,8 @@ func run(cfg *config.Config) error {
 
 	monitor, err := database.NewMonitor(
 		db.Ping,
-		cfg.Database.HealthCheckIT,
-		cfg.Database.HealthCheckTO,
+		cfg.Database.Resilience.HealthCheckInterval,
+		cfg.Database.Resilience.HealthCheckTimeout,
 	)
 	if err != nil {
 		return fmt.Errorf("monitor init: %w", err)
@@ -117,7 +118,7 @@ func run(cfg *config.Config) error {
 		db,
 		serverErrors,
 		quit,
-		cfg.Server.ShutdownTO,
+		cfg.Server.ShutdownTimeout,
 	)
 }
 
@@ -126,11 +127,11 @@ func newServer(cfg config.Server) *http.Server {
 	mux.HandleFunc("/", rootHandler)
 
 	return &http.Server{
-		Addr:         cfg.Host + ":" + strconv.FormatUint(uint64(cfg.Port), 10),
+		Addr:         net.JoinHostPort(cfg.Host, strconv.FormatUint(cfg.Port, 10)),
 		Handler:      mux,
-		ReadTimeout:  cfg.ReadTO,
-		WriteTimeout: cfg.WriteTO,
-		IdleTimeout:  cfg.IdleTO,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 }
 
