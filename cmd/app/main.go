@@ -74,27 +74,19 @@ func run(cfg *config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dbInstance, err := database.NewDatabase(ctx, cfg.Database)
+	db, err := database.NewDatabase(ctx, cfg.Database)
 	if err != nil {
 		return fmt.Errorf("database init: %w", err)
 	}
 
 	defer func() {
-		if err := dbInstance.Close(); err != nil {
+		if err := db.Close(); err != nil {
 			logger.S().Warnw("Database connection close failed during cleanup", "error", err)
 		}
 	}()
 
-	logger.S().Infow("Database connected", "database", cfg.Database.Name)
-
-	if version, err := dbInstance.GetDBVersion(ctx); err == nil {
-		logger.S().Infow("Database version", "db_version", version)
-	} else {
-		logger.S().Warnw("Could not fetch database version", "error", err)
-	}
-
 	monitor, err := database.NewMonitor(
-		dbInstance,
+		db.Ping,
 		cfg.Database.HealthCheckIT,
 		cfg.Database.HealthCheckTO,
 	)
@@ -122,7 +114,7 @@ func run(cfg *config.Config) error {
 		cancel,
 		server,
 		monitor,
-		dbInstance,
+		db,
 		serverErrors,
 		quit,
 		cfg.Server.ShutdownTO,
@@ -158,7 +150,7 @@ func waitForShutdown(
 	cancel context.CancelFunc,
 	server *http.Server,
 	monitor database.Monitor,
-	dbInstance database.Database,
+	db database.Database,
 	serverErrors <-chan error,
 	quit <-chan os.Signal,
 	shutdownTO time.Duration,
@@ -177,13 +169,13 @@ func waitForShutdown(
 
 		cancel()
 
-		if err := dbInstance.Close(); err != nil {
+		if err := db.Close(); err != nil {
 			logger.S().Warnw("Database shutdown failed", "error", err)
 		}
 
 		return err
 	case sig := <-quit:
-		return shutdownServer(cancel, server, monitor, dbInstance, serverErrors, sig, shutdownTO)
+		return shutdownServer(cancel, server, monitor, db, serverErrors, sig, shutdownTO)
 	}
 }
 
@@ -191,7 +183,7 @@ func shutdownServer(
 	cancel context.CancelFunc,
 	server *http.Server,
 	monitor database.Monitor,
-	dbInstance database.Database,
+	db database.Database,
 	serverErrors <-chan error,
 	sig os.Signal,
 	shutdownTO time.Duration,
@@ -217,7 +209,7 @@ func shutdownServer(
 	cancel()
 	monitor.Stop()
 
-	if err := dbInstance.Close(); err != nil {
+	if err := db.Close(); err != nil {
 		logger.S().Warnw("Database shutdown failed", "error", err)
 
 		if shutdownErr == nil {

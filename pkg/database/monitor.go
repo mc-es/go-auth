@@ -9,24 +9,24 @@ import (
 )
 
 // NewMonitor creates a new Monitor instance.
-func NewMonitor(prober Prober, interval, timeout time.Duration) (Monitor, error) {
-	if prober == nil {
+func NewMonitor(ping func(context.Context) error, intv, to time.Duration) (Monitor, error) {
+	if ping == nil {
 		return nil, wrapDbError(
 			operationMonitor,
-			errors.New("prober cannot be nil"),
+			errors.New("ping function cannot be nil"),
 			map[string]any{
-				"interval": interval.String(),
-				"timeout":  timeout.String(),
+				"interval": intv.String(),
+				"timeout":  to.String(),
 			},
 		)
 	}
 
 	monitor := &monitor{
-		prober:   prober,
-		interval: interval,
-		timeout:  timeout,
+		ping:     ping,
+		interval: intv,
+		timeout:  to,
 	}
-	monitor.healthy.Store(true)
+	monitor.healthy.Store(false)
 
 	return monitor, nil
 }
@@ -119,7 +119,7 @@ func (m *monitor) checkMonitor(ctx context.Context, timeout time.Duration) error
 	defer cancel()
 
 	start := time.Now()
-	err := m.prober.Ping(checkCtx)
+	err := m.ping(checkCtx)
 	duration := time.Since(start)
 	healthy := err == nil
 	m.healthy.Store(healthy)

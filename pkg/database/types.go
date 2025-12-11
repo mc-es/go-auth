@@ -11,15 +11,9 @@ import (
 	"go-auth/config"
 )
 
-// Prober defines the interface for database probing operations.
-type Prober interface {
-	Ping(ctx context.Context) error
-	GetDBVersion(ctx context.Context) (string, error)
-}
-
 // Database defines the interface for database connection management.
 type Database interface {
-	Prober
+	Ping(ctx context.Context) error
 	Close() error
 }
 
@@ -39,15 +33,15 @@ type database struct {
 
 // monitor is the implementation of Monitor.
 type monitor struct {
-	healthy    atomic.Bool        // Current health status (true = healthy, false = unhealthy)
-	running    atomic.Bool        // Whether the monitor goroutine is running
-	inProgress atomic.Bool        // Whether a monitor is currently in progress
-	waitGroup  sync.WaitGroup     // Waits for the monitor goroutine to finish
-	prober     Prober             // Database prober used for monitors
-	interval   time.Duration      // Time between monitors
-	timeout    time.Duration      // Timeout for each monitor
-	mu         sync.Mutex         // Mutex for protecting the monitor state
-	ctxCancel  context.CancelFunc // Cancels the monitor context
+	healthy    atomic.Bool                 // Current health status (true = healthy, false = unhealthy)
+	running    atomic.Bool                 // Whether the monitor goroutine is running
+	inProgress atomic.Bool                 // Whether a monitor is currently in progress
+	waitGroup  sync.WaitGroup              // Waits for the monitor goroutine to finish
+	ping       func(context.Context) error // Function to ping the database
+	interval   time.Duration               // Time between monitors
+	timeout    time.Duration               // Timeout for each monitor
+	mu         sync.Mutex                  // Mutex for protecting the monitor state
+	ctxCancel  context.CancelFunc          // Cancels the monitor context
 }
 
 // retrier handles retry logic with exponential backoff for database operations.

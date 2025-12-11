@@ -73,6 +73,16 @@ func (r *retrier) checkContext(ctx context.Context, attempt int) error {
 func (r *retrier) sleepWithBackoff(ctx context.Context, attempt int) error {
 	sleepDuration := r.calculateBackoff(attempt)
 
+	if deadline, ok := ctx.Deadline(); ok {
+		if time.Until(deadline) < sleepDuration {
+			return wrapDbError(operationRetry, context.DeadlineExceeded, map[string]any{
+				"attempt":        attempt + 1,
+				"sleep_duration": sleepDuration.String(),
+				"time_left":      time.Until(deadline).String(),
+			})
+		}
+	}
+
 	timer := time.NewTimer(sleepDuration)
 	defer timer.Stop()
 

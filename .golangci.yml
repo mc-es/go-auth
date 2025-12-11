@@ -108,5 +108,6 @@ linters:
         - validate
         - envDefault
     varnamelen:
+      min-name-length: 2
       ignore-names:
         - i # for loops
