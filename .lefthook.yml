@@ -1,25 +1,27 @@
+version: "2"
+
 pre-commit:
   parallel: true
   commands:
-    golangci:
+    lint:
       stage_fixed: true
       run: golangci-lint run
-    govet:
+    vet:
       run: go vet ./...
-    gomodtidy:
+    tidy:
       stage_fixed: true
       run: go mod tidy
-    gomodverify:
+    verify:
       run: go mod verify
 
 commit-msg:
   parallel: false
   commands:
-    commitcheck:
+    commit-check:
       run: go run ./cmd/commitcheck {1}
 
 pre-push:
   parallel: false
   commands:
-    govulncheck:
-      run: go tool govulncheck ./...
+    vuln:
+      run: govulncheck ./...
