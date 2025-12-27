@@ -4,7 +4,9 @@ SHELL := /bin/bash
 	help \
 	build run \
 	test test-race test-coverage \
+	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
+	setup-golangci-lint setup-govulncheck setup-all \
 	clean clean-cache clean-vendor clean-all
 
 # Colors & Formatting
@@ -41,11 +43,22 @@ APP_NAME     := app
 PROJECT_ROOT := $(shell pwd)
 COVERAGE_DIR := $(PROJECT_ROOT)/coverage
 BIN_DIR      := $(PROJECT_ROOT)/bin
+TOOLS_DIR    := $(BIN_DIR)/tools
+
+# App Binary
 APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
+
+# Tool Versions
+LINT_VERSION     := v2.7.2
+VULN_VERSION     := v1.1.4
+
+# Tool Paths
+LINT     := $(TOOLS_DIR)/golangci-lint
+VULN     := $(TOOLS_DIR)/govulncheck
 
 # Build Metadata
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
-GIT_DIRTY  := $(shell git diff --quiet || echo "+CHANGES")
+GIT_DIRTY  := $(shell git diff --quiet && git diff --cached --quiet || echo "+CHANGES")
 BUILD_DATE := $(shell date '+%Y-%m-%d-%H:%M:%S')
 LDFLAGS    := -w -s -X main.Commit=$(GIT_COMMIT)$(GIT_DIRTY) -X main.BuildDate=$(BUILD_DATE)
 
@@ -58,6 +71,9 @@ $(BIN_DIR):
 
 $(COVERAGE_DIR):
 	@mkdir -p $(COVERAGE_DIR)
+
+$(TOOLS_DIR):
+	@mkdir -p $(TOOLS_DIR)
 
 
 # --- Help ---
@@ -94,7 +110,12 @@ run: build ## Run the application
 # --- Testing & Coverage ---
 test: ## Run tests (fast, no race)
 	@$(call print_header,"Running tests...")
-	@$(GO) test -v $(PROJECT_ROOT)/...
+	@if $(GO) test -v $(PROJECT_ROOT)/...; then \
+		$(call print_success,"Tests passed!"); \
+	else \
+		$(call print_error,"Tests failed!"); \
+		exit 1; \
+	fi
 
 test-race: ## Run tests with race detector
 	@$(call print_header,"Running tests with race detector...")
@@ -116,6 +137,39 @@ test-coverage: | $(COVERAGE_DIR) ## Run tests with coverage
 	fi
 
 
+# --- Code Quality ---
+lint: | $(TOOLS_DIR) ## Run linter
+	@$(call print_header,"Running golangci-lint...")
+	@if [ ! -f "$(LINT)" ]; then \
+		$(call print_warning,"Golangci-lint not found. Auto-installing..."); \
+		$(MAKE) -s setup-golangci-lint; \
+	fi
+	@if "$(LINT)" run $(PROJECT_ROOT)/...; then \
+		$(call print_success,"Lint checks passed!"); \
+	else \
+		$(call print_error,"Lint checks failed!"); \
+		exit 1; \
+	fi
+
+format: ## Run go fmt
+	@$(call print_header,"Running code formatter...")
+	@$(GO) fmt $(PROJECT_ROOT)/...
+	@$(call print_success,"Code formatted!")
+
+vuln: | $(TOOLS_DIR) ## Run security scan
+	@$(call print_header,"Checking vulnerabilities...")
+	@if [ ! -f "$(VULN)" ]; then \
+		$(call print_warning,"Govulncheck not found. Auto-installing..."); \
+		$(MAKE) -s setup-govulncheck; \
+	fi
+	@if "$(VULN)" $(PROJECT_ROOT)/...; then \
+		$(call print_success,"Vulnerability checks passed!"); \
+	else \
+		$(call print_error,"Vulnerability checks failed!"); \
+		exit 1; \
+	fi
+
+
 # --- Dependencies ---
 deps-check: ## Verify dependencies
 	@$(GO) mod verify
@@ -132,6 +186,36 @@ deps-vendor: ## Create vendor directory
 deps-upgrade: ## Upgrade direct dependencies
 	@$(GO) get -u ./... && $(GO) mod tidy
 	@$(call print_success,"Dependencies upgraded!")
+
+
+# --- Tooling ---
+setup-golangci-lint: $(TOOLS_DIR) ## Install GolangCI-Lint
+	@if [ -f "$(LINT)" ]; then \
+		$(call print_warning,"golangci-lint already installed at $(LINT)"); \
+	else \
+		$(call print_header,"Installing golangci-lint@$(LINT_VERSION)..."); \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(TOOLS_DIR)" $(LINT_VERSION) 2>/dev/null; \
+		if [ ! -f "$(LINT)" ]; then \
+			$(call print_error,"Failed to install golangci-lint!"); \
+			exit 1; \
+		fi; \
+		$(call print_success,"Golangci-lint installed successfully!"); \
+	fi
+
+setup-govulncheck: $(TOOLS_DIR) ## Install Govulncheck
+	@if [ -f "$(VULN)" ]; then \
+		$(call print_warning,"govulncheck already installed at $(VULN)"); \
+	else \
+		$(call print_header,"Installing govulncheck@$(VULN_VERSION)..."); \
+		GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/vuln/cmd/govulncheck@$(VULN_VERSION); \
+		if [ ! -f "$(VULN)" ]; then \
+			$(call print_error,"Failed to install govulncheck!"); \
+			exit 1; \
+		fi; \
+		$(call print_success,"Govulncheck installed successfully!"); \
+	fi
+
+setup-all: setup-golangci-lint setup-govulncheck ## Install all tools
 
 
 # --- Cleanup ---

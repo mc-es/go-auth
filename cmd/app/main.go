@@ -3,6 +3,7 @@ package main
 
 import "fmt"
 
+//nolint:forbidigo
 func main() {
 	fmt.Println("Hello, World!")
 }
