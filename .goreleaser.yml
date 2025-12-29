@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+
+version: 2
+project_name: go-auth
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/app
+    binary: go-auth
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - "linux"
+      - "windows"
+      - "darwin"
+    goarch:
+      - "amd64"
+      - "arm64"
+      - "386"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{ .CommitDate }}
+
+checksum:
+  name_template: "checksums.txt"
+
+nfpms:
+  - file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    maintainer: Mehmetcan ESER <mehmetcan.eser.dev@gmail.com>
+    description: GoAuth
+    homepage: https://github.com/mc-es/go-auth
+    license: MIT
+    bindir: /usr/bin
+    formats: [deb, rpm, apk]
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+dockers:
+  - image_templates:
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:{{ .Tag }}"
+      - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:latest"
+    dockerfile: Dockerfile
+    goos: linux
+    goarch: amd64
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+
+release:
+  mode: append
+  footer: |
+    ---
+    ### 📦 Release Metadata
+    > **Released by:** [GoReleaser](https://github.com/goreleaser/goreleaser)
+    > **Docker Image:** `ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:{{ .Tag }}`
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
