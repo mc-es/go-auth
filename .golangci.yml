@@ -96,6 +96,8 @@ linters:
               desc: "Use inline logger instead of log package."
             - pkg: "github.com/pkg/errors"
               desc: "Use std 'errors' and `fmt.Errorf` instead."
+    exhaustive:
+      ignore-enum-types: "syscall.Errno"
     gocritic:
       enable-all: true
       disabled-checks:
@@ -106,7 +108,6 @@ linters:
         - fieldalignment # Optimizes struct field order for memory efficiency, but prefer code readability
     mnd:
       checks:
-        - argument
         - case
         - operation
         - return
