@@ -6,12 +6,13 @@ import (
 	"os/signal"
 	"syscall"
 
+	"go-auth/internal/config"
 	"go-auth/pkg/logger"
 	"go-auth/pkg/logger/zap"
 )
 
 func main() {
-	zapLogger, err := zap.New(zap.WithDevelopmentMode())
+	zapLogger, err := zap.New(zap.WithDevelopmentMode(), zap.WithoutStacktrace())
 	if err != nil {
 		panic(err)
 	}
@@ -22,11 +23,12 @@ func main() {
 		_ = logger.Sync()
 	}()
 
-	logger.Debug("Application debug message")
-	logger.Info("Application info message")
-	logger.Warn("Application warn message")
-	logger.With("key", "value").Debug("Application debug message with key-value")
-	logger.With("key", "value").With("key2", "value2").Debug("Application debug message with key-value and key2-value2")
+	cfg, err := config.Load()
+	if err != nil {
+		logger.Fatal("Failed to load configuration", "error", err)
+	}
+
+	logger.Info("Application started", "name", cfg.AppName, "host", cfg.Host, "port", cfg.Port, "env", cfg.Env)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
