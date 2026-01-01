@@ -159,7 +159,7 @@ func parseTypeAndScope(prefix string) (commitType, string, error) {
 		}
 
 		prefixWithoutClosing := strings.TrimSuffix(prefix, ")")
-		parts := strings.SplitN(prefixWithoutClosing, "(", 2) //nolint:mnd // SplitN expects 2 parts: type and scope
+		parts := strings.SplitN(prefixWithoutClosing, "(", 2)
 
 		typ := commitType(parts[0])
 		scope := parts[1]

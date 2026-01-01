@@ -61,7 +61,8 @@ LEFTHOOK := $(TOOLS_DIR)/lefthook
 # Build Metadata
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE := $(shell date '+%Y-%m-%d-%H:%M:%S')
-LDFLAGS    := -w -s -X main.Commit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE)
+VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+LDFLAGS    := -w -s -X main.version=$(VERSION) -X main.commit=$(GIT_COMMIT) -X main.date=$(BUILD_DATE)
 
 # Default command
 .DEFAULT_GOAL := help
