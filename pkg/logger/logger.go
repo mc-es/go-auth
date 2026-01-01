@@ -1,4 +1,12 @@
-// Package logger provides a logging interface.
+// Package logger provides a unified logging interface for the application.
+//
+// Usage:
+//
+//	zapLogger, _ := zap.New(zap.WithDevelopmentMode())
+//	logger.SetGlobalLogger(zapLogger)
+//	defer logger.Sync()
+//
+//	logger.Info("Application started", "port", 8080)
 package logger
 
 // Logger defines the logging interface.

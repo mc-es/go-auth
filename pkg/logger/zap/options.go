@@ -3,134 +3,113 @@ package zap
 import (
 	"maps"
 	"time"
-
-	"go.uber.org/zap/zapcore"
 )
 
-// WithLevel sets the log level. (-1: debug, 0: info, 1: warn, 2: error, 3: fatal).
+// WithLevel sets the log level. Default: -1.
+//
+//	"debug": -1 | "info": 0 | "warn": 1 | "error": 2 | "fatal": 3.
 func WithLevel(level Level) Option {
-	return func(cfg *config) error {
-		cfg.level = level
-
-		return nil
+	return func(cfg *config) {
+		switch level {
+		case LevelDebug, LevelInfo, LevelWarn, LevelError, LevelFatal:
+			cfg.level = level
+		default:
+			cfg.level = LevelDebug
+		}
 	}
 }
 
-// WithEncoding sets the log encoding format. (json, console).
+// WithEncoding sets the log encoding format. Default: json.
+//
+//	"json" | "console".
 func WithEncoding(encoding Encoding) Option {
-	return func(cfg *config) error {
-		cfg.encoding = encoding
-
-		return nil
+	return func(cfg *config) {
+		switch encoding {
+		case EncodingJson, EncodingConsole:
+			cfg.encoding = encoding
+		default:
+			cfg.encoding = EncodingJson
+		}
 	}
 }
 
 // WithDevelopmentMode enables development-friendly settings.
-// (development: true, encoding: console, sampling: false, timeEncoder: time.TimeOnly).
+//
+//	development: true, encoding: console, sampling: false, timeLayout: time.TimeOnly.
 func WithDevelopmentMode() Option {
-	return func(cfg *config) error {
+	return func(cfg *config) {
 		cfg.development = true
 		cfg.encoding = EncodingConsole
 		cfg.sampling = false
-		cfg.timeEncoder = zapcore.TimeEncoderOfLayout(time.TimeOnly)
-
-		return nil
+		cfg.timeLayout = time.TimeOnly
 	}
 }
 
-// WithOutputPaths sets the log output paths.
+// WithOutputPaths sets the log output paths. Default: stdout.
 func WithOutputPaths(paths ...string) Option {
-	return func(cfg *config) error {
+	return func(cfg *config) {
 		if len(paths) > 0 {
 			cfg.outputPaths = make([]string, len(paths))
 			copy(cfg.outputPaths, paths)
 		}
-
-		return nil
 	}
 }
 
-// WithErrorOutputPaths sets the error output paths.
-func WithErrorOutputPaths(paths ...string) Option {
-	return func(cfg *config) error {
-		if len(paths) > 0 {
-			cfg.errorOutputPaths = make([]string, len(paths))
-			copy(cfg.errorOutputPaths, paths)
+// WithTimeLayout sets a custom time layout. Default: time.DateTime.
+//
+//	time.DateOnly | time.TimeOnly | time.RFC3339 | time.RFC822 | time.RFC1123.
+func WithTimeLayout(layout string) Option {
+	return func(cfg *config) {
+		switch layout {
+		case time.DateTime, time.DateOnly, time.TimeOnly, time.RFC3339, time.RFC822, time.RFC1123:
+			cfg.timeLayout = layout
+		default:
+			cfg.timeLayout = time.DateTime
 		}
-
-		return nil
-	}
-}
-
-// WithTimeEncoder sets a custom time encoder.
-func WithTimeEncoder(enc zapcore.TimeEncoder) Option {
-	return func(cfg *config) error {
-		if enc != nil {
-			cfg.timeEncoder = enc
-		}
-
-		return nil
 	}
 }
 
 // WithInitialFields sets fields added to all log entries.
+//
+// Example:
+//
+//	WithInitialFields(map[string]any{
+//		"key": "value",
+//	})
 func WithInitialFields(fields map[string]any) Option {
-	return func(cfg *config) error {
-		if len(fields) == 0 {
-			return nil
-		}
-
+	return func(cfg *config) {
 		maps.Copy(cfg.initialFields, fields)
-
-		return nil
 	}
 }
 
 // WithoutCaller disables caller information in logs.
 func WithoutCaller() Option {
-	return func(cfg *config) error {
+	return func(cfg *config) {
 		cfg.disableCaller = true
-
-		return nil
 	}
 }
 
 // WithoutStacktrace disables stacktrace output.
 func WithoutStacktrace() Option {
-	return func(cfg *config) error {
+	return func(cfg *config) {
 		cfg.disableStacktrace = true
-
-		return nil
-	}
-}
-
-// WithStacktraceLevel sets the minimum level for stacktraces. (-1: debug, 0: info, 1: warn, 2: error, 3: fatal).
-func WithStacktraceLevel(level Level) Option {
-	return func(cfg *config) error {
-		cfg.stacktraceLevel = level
-
-		return nil
-	}
-}
-
-// WithSampling enables log sampling with given parameters.
-func WithSampling(initial, thereafter int) Option {
-	return func(cfg *config) error {
-		if initial > 0 && thereafter > 0 {
-			cfg.sampling = true
-			cfg.samplingInitial = initial
-			cfg.samplingThereafter = thereafter
-		}
-
-		return nil
 	}
 }
 
 // WithoutSampling disables log sampling.
 func WithoutSampling() Option {
-	return func(cfg *config) error {
+	return func(cfg *config) {
 		cfg.sampling = false
+	}
+}
 
-		return nil
+// WithSampling enables log sampling with given parameters. (positive values).
+func WithSampling(initial, thereafter int) Option {
+	return func(cfg *config) {
+		if initial > 0 && thereafter > 0 {
+			cfg.sampling = true
+			cfg.samplingInitial = initial
+			cfg.samplingThereafter = thereafter
+		}
 	}
 }

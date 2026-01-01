@@ -1,34 +1,24 @@
 package zap
 
-import "go.uber.org/zap/zapcore"
-
 //nolint:revive
 type (
 	Level    int8
 	Encoding string
-	Option   func(*config) error
+	Option   func(*config)
 )
 
 type config struct {
 	// core
 	level       Level    // debug, info, warn, error, fatal
 	encoding    Encoding // json, console
+	outputPaths []string // log output targets
 	development bool     // enables dev-friendly settings
 
-	// outputs
-	outputPaths      []string // log output targets
-	errorOutputPaths []string // error output targets
-
-	// formatting
-	timeEncoder   zapcore.TimeEncoder // custom time encoder
-	initialFields map[string]any      // predefined structured fields
-
-	// caller
-	disableCaller bool // disable caller info
-
-	// stacktrace
-	disableStacktrace bool  // disable stacktrace output
-	stacktraceLevel   Level // minimum level that triggers a stacktrace
+	// custom settings
+	timeLayout        string         // custom time layout
+	initialFields     map[string]any // predefined structured fields
+	disableCaller     bool           // disable caller info
+	disableStacktrace bool           // disable stacktrace output
 
 	// sampling
 	sampling           bool // enable log sampling

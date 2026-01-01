@@ -22,14 +22,18 @@ type adapter struct {
 var _ logger.Logger = (*adapter)(nil)
 
 // New creates a new zap logger instance.
+//
+// Example:
+//
+//	logger, err := zap.New(
+//		zap.WithLevel(zap.LevelInfo),
+//		zap.WithEncoding(zap.EncodingJson),
+//		... // other options
+//	)
 func New(opts ...Option) (logger.Logger, error) {
-	cfg, err := buildConfig(opts...)
-	if err != nil {
-		return nil, err
-	}
+	cfg := buildConfig(opts...)
 
-	err = ensureDirectories(cfg.outputPaths)
-	if err != nil {
+	if err := ensureDirectories(cfg.outputPaths); err != nil {
 		return nil, err
 	}
 
@@ -39,7 +43,7 @@ func New(opts ...Option) (logger.Logger, error) {
 		Encoding:          string(cfg.encoding),
 		EncoderConfig:     buildEncoderConfig(&cfg),
 		OutputPaths:       cfg.outputPaths,
-		ErrorOutputPaths:  cfg.errorOutputPaths,
+		ErrorOutputPaths:  []string{"stderr"},
 		DisableCaller:     cfg.disableCaller,
 		DisableStacktrace: cfg.disableStacktrace,
 		InitialFields:     cfg.initialFields,
@@ -57,7 +61,7 @@ func New(opts ...Option) (logger.Logger, error) {
 	options = append(options, zap.AddCallerSkip(defaultCallerSkip))
 
 	if !cfg.disableStacktrace {
-		options = append(options, zap.AddStacktrace(zapcore.Level(cfg.stacktraceLevel)))
+		options = append(options, zap.AddStacktrace(zapcore.ErrorLevel))
 	}
 
 	zapLogger, err := zapCfg.Build(options...)
@@ -110,18 +114,13 @@ func defaultConfig() config {
 	return config{
 		level:       LevelDebug,
 		encoding:    EncodingJson,
+		outputPaths: []string{"stdout"},
 		development: false,
 
-		outputPaths:      []string{"stdout"},
-		errorOutputPaths: []string{"stderr"},
-
-		timeEncoder:   nil,
-		initialFields: map[string]any{},
-
-		disableCaller: false,
-
+		timeLayout:        time.DateTime,
+		initialFields:     make(map[string]any),
+		disableCaller:     false,
 		disableStacktrace: false,
-		stacktraceLevel:   LevelError,
 
 		sampling:           true,
 		samplingInitial:    defaultSamplingInitial,
@@ -129,7 +128,7 @@ func defaultConfig() config {
 	}
 }
 
-func buildConfig(opts ...Option) (config, error) {
+func buildConfig(opts ...Option) config {
 	cfg := defaultConfig()
 
 	for _, opt := range opts {
@@ -137,12 +136,10 @@ func buildConfig(opts ...Option) (config, error) {
 			continue
 		}
 
-		if err := opt(&cfg); err != nil {
-			return cfg, err
-		}
+		opt(&cfg)
 	}
 
-	return cfg, nil
+	return cfg
 }
 
 func buildEncoderConfig(cfg *config) zapcore.EncoderConfig {
@@ -155,13 +152,9 @@ func buildEncoderConfig(cfg *config) zapcore.EncoderConfig {
 		StacktraceKey:  "stacktrace",
 		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.TimeEncoderOfLayout(time.DateTime),
+		EncodeTime:     zapcore.TimeEncoderOfLayout(cfg.timeLayout),
 		EncodeDuration: zapcore.MillisDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
-	}
-
-	if cfg.timeEncoder != nil {
-		encoder.EncodeTime = cfg.timeEncoder
 	}
 
 	if cfg.development && cfg.encoding == EncodingConsole {
