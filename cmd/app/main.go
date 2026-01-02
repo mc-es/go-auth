@@ -23,12 +23,22 @@ func main() {
 		_ = logger.Sync()
 	}()
 
-	cfg, err := config.Load()
+	envConfig, err := config.LoadEnv()
 	if err != nil {
-		logger.Fatal("Failed to load configuration", "error", err)
+		logger.Fatal("Failed to load environment configuration", "error", err)
 	}
 
-	logger.Info("Application started", "name", cfg.AppName, "host", cfg.Host, "port", cfg.Port, "env", cfg.Env)
+	logger.Info(
+		"Application started",
+		"name",
+		envConfig.AppName,
+		"host",
+		envConfig.Host,
+		"port",
+		envConfig.Port,
+		"env",
+		envConfig.Env,
+	)
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
