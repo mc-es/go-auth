@@ -39,7 +39,7 @@ const (
 )
 
 const (
-	defaultCallerSkip         = 2
+	defaultCallerSkip         = 2 // two levels: zap adapter -> logger package -> main package
 	defaultSamplingInitial    = 100
 	defaultSamplingThereafter = 100
 )

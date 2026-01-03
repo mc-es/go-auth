@@ -16,7 +16,6 @@ import (
 
 type adapter struct {
 	logger *zap.SugaredLogger
-	skip   int // skip levels for wrapped loggers
 }
 
 var _ logger.Logger = (*adapter)(nil)
@@ -58,6 +57,7 @@ func New(opts ...Option) (logger.Logger, error) {
 
 	var options []zap.Option
 
+	// hide logger package calls from stacktrace
 	options = append(options, zap.AddCallerSkip(defaultCallerSkip))
 
 	if !cfg.disableStacktrace {
@@ -69,7 +69,7 @@ func New(opts ...Option) (logger.Logger, error) {
 		return nil, err
 	}
 
-	return &adapter{logger: zapLogger.Sugar(), skip: defaultCallerSkip}, nil
+	return &adapter{logger: zapLogger.Sugar()}, nil
 }
 
 // Debug logs a debug message.
@@ -89,15 +89,7 @@ func (a *adapter) Fatal(msg string, args ...any) { a.logger.Fatalw(msg, args...)
 
 // With returns a logger with additional fields.
 func (a *adapter) With(args ...any) logger.Logger {
-	childLogger := a.logger.With(args...)
-
-	childSkip := a.skip
-	if a.skip > 1 {
-		childLogger = childLogger.Desugar().WithOptions(zap.AddCallerSkip(-1)).Sugar()
-		childSkip--
-	}
-
-	return &adapter{logger: childLogger, skip: childSkip}
+	return &adapter{logger: a.logger.With(args...)}
 }
 
 // Sync flushes buffered log entries.
