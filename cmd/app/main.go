@@ -8,16 +8,16 @@ import (
 
 	"go-auth/internal/config"
 	"go-auth/pkg/logger"
-	"go-auth/pkg/logger/zap"
+	"go-auth/pkg/logger/logrus"
 )
 
 func main() {
-	zapLogger, err := zap.New(zap.WithDevelopmentMode(), zap.WithoutStacktrace())
+	logrusLogger, err := logrus.New(logrus.WithDevelopmentMode())
 	if err != nil {
 		panic(err)
 	}
 
-	logger.SetGlobalLogger(zapLogger)
+	logger.SetGlobalLogger(logrusLogger)
 
 	defer func() {
 		_ = logger.Sync()
@@ -28,7 +28,7 @@ func main() {
 		logger.Fatal("Failed to load environment configuration", "error", err)
 	}
 
-	logger.Info(
+	logger.Warn(
 		"Application started",
 		"name",
 		envConfig.AppName,

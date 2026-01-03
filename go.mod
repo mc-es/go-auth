@@ -6,6 +6,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/joho/godotenv v1.5.1
+	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/zap v1.27.1
 )
 
