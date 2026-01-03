@@ -1,8 +1,8 @@
-// Package zap provides zap logger adapter.
 package zap
 
 import (
 	"errors"
+	"go-auth/pkg/logger"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -10,140 +10,22 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"go-auth/pkg/logger"
 )
 
+func init() {
+	logger.Register(logger.DriverZap, New)
+}
+
 type adapter struct {
-	logger *zap.SugaredLogger
-	skip   int // skip levels for wrapped loggers
+	l *zap.SugaredLogger
 }
 
-var _ logger.Logger = (*adapter)(nil)
-
-// New creates a new zap logger instance.
-//
-// Example:
-//
-//	logger, err := zap.New(
-//		zap.WithLevel(zap.LevelInfo),
-//		zap.WithEncoding(zap.EncodingJson),
-//		... // other options
-//	)
-func New(opts ...Option) (logger.Logger, error) {
-	cfg := buildConfig(opts...)
-
-	if err := ensureDirectories(cfg.outputPaths); err != nil {
+func New(cfg logger.Config) (logger.Logger, error) {
+	if err := ensureDirectories(cfg.OutputPaths); err != nil {
 		return nil, err
 	}
 
-	zapCfg := zap.Config{
-		Level:             zap.NewAtomicLevelAt(zapcore.Level(cfg.level)),
-		Development:       cfg.development,
-		Encoding:          string(cfg.encoding),
-		EncoderConfig:     buildEncoderConfig(&cfg),
-		OutputPaths:       cfg.outputPaths,
-		ErrorOutputPaths:  []string{"stderr"},
-		DisableCaller:     cfg.disableCaller,
-		DisableStacktrace: cfg.disableStacktrace,
-		InitialFields:     cfg.initialFields,
-	}
-
-	if cfg.sampling {
-		zapCfg.Sampling = &zap.SamplingConfig{
-			Initial:    cfg.samplingInitial,
-			Thereafter: cfg.samplingThereafter,
-		}
-	}
-
-	var options []zap.Option
-
-	options = append(options, zap.AddCallerSkip(defaultCallerSkip))
-
-	if !cfg.disableStacktrace {
-		options = append(options, zap.AddStacktrace(zapcore.ErrorLevel))
-	}
-
-	zapLogger, err := zapCfg.Build(options...)
-	if err != nil {
-		return nil, err
-	}
-
-	return &adapter{logger: zapLogger.Sugar(), skip: defaultCallerSkip}, nil
-}
-
-// Debug logs a debug message.
-func (a *adapter) Debug(msg string, args ...any) { a.logger.Debugw(msg, args...) }
-
-// Info logs an info message.
-func (a *adapter) Info(msg string, args ...any) { a.logger.Infow(msg, args...) }
-
-// Warn logs a warning message.
-func (a *adapter) Warn(msg string, args ...any) { a.logger.Warnw(msg, args...) }
-
-// Error logs an error message.
-func (a *adapter) Error(msg string, args ...any) { a.logger.Errorw(msg, args...) }
-
-// Fatal logs a fatal message and exits.
-func (a *adapter) Fatal(msg string, args ...any) { a.logger.Fatalw(msg, args...) }
-
-// With returns a logger with additional fields.
-func (a *adapter) With(args ...any) logger.Logger {
-	childLogger := a.logger.With(args...)
-
-	childSkip := a.skip
-	if a.skip > 1 {
-		childLogger = childLogger.Desugar().WithOptions(zap.AddCallerSkip(-1)).Sugar()
-		childSkip--
-	}
-
-	return &adapter{logger: childLogger, skip: childSkip}
-}
-
-// Sync flushes buffered log entries.
-func (a *adapter) Sync() error {
-	err := a.logger.Sync()
-	if err != nil && !isIgnorableSyncErr(err) {
-		return err
-	}
-
-	return nil
-}
-
-func defaultConfig() config {
-	return config{
-		level:       LevelDebug,
-		encoding:    EncodingJson,
-		outputPaths: []string{"stdout"},
-		development: false,
-
-		timeLayout:        time.DateTime,
-		initialFields:     make(map[string]any),
-		disableCaller:     false,
-		disableStacktrace: false,
-
-		sampling:           true,
-		samplingInitial:    defaultSamplingInitial,
-		samplingThereafter: defaultSamplingThereafter,
-	}
-}
-
-func buildConfig(opts ...Option) config {
-	cfg := defaultConfig()
-
-	for _, opt := range opts {
-		if opt == nil {
-			continue
-		}
-
-		opt(&cfg)
-	}
-
-	return cfg
-}
-
-func buildEncoderConfig(cfg *config) zapcore.EncoderConfig {
-	encoder := zapcore.EncoderConfig{
+	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "ts",
 		LevelKey:       "level",
 		NameKey:        "logger",
@@ -152,16 +34,71 @@ func buildEncoderConfig(cfg *config) zapcore.EncoderConfig {
 		StacktraceKey:  "stacktrace",
 		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.TimeEncoderOfLayout(cfg.timeLayout),
+		EncodeTime:     zapcore.TimeEncoderOfLayout(time.DateTime),
 		EncodeDuration: zapcore.MillisDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	if cfg.development && cfg.encoding == EncodingConsole {
-		encoder.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	if cfg.Development && cfg.Encoding == logger.EncodingConsole {
+		encoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	}
 
-	return encoder
+	zapCfg := zap.Config{
+		Level:             zap.NewAtomicLevelAt(zapcore.Level(cfg.Level)),
+		Development:       cfg.Development,
+		DisableCaller:     cfg.DisableCaller,
+		DisableStacktrace: cfg.DisableStacktrace,
+		EncoderConfig:     encoderConfig,
+		OutputPaths:       []string{"stdout"},
+		ErrorOutputPaths:  []string{"stderr"},
+	}
+
+	if cfg.Encoding == logger.EncodingConsole {
+		zapCfg.Encoding = string(logger.EncodingConsole)
+	} else {
+		zapCfg.Encoding = string(logger.EncodingJSON)
+	}
+
+	if len(cfg.OutputPaths) > 0 {
+		zapCfg.OutputPaths = cfg.OutputPaths
+	}
+
+	if len(cfg.InitialFields) > 0 {
+		zapCfg.InitialFields = cfg.InitialFields
+	}
+
+	if cfg.DriverOptions != nil {
+		if val, ok := cfg.DriverOptions[samplingKey]; ok {
+			if samplingOpts, ok := val.(SamplingConfig); ok {
+				zapCfg.Sampling = &zap.SamplingConfig{
+					Initial:    samplingOpts.Initial,
+					Thereafter: samplingOpts.Thereafter,
+				}
+			}
+		}
+	}
+
+	z, err := zapCfg.Build(zap.AddCallerSkip(1))
+	if err != nil {
+		return nil, err
+	}
+
+	return &adapter{l: z.Sugar()}, nil
+
+}
+
+func (a *adapter) Info(msg string, args ...any)   { a.l.Infow(msg, args...) }
+func (a *adapter) Debug(msg string, args ...any)  { a.l.Debugw(msg, args...) }
+func (a *adapter) Warn(msg string, args ...any)   { a.l.Warnw(msg, args...) }
+func (a *adapter) Error(msg string, args ...any)  { a.l.Errorw(msg, args...) }
+func (a *adapter) Fatal(msg string, args ...any)  { a.l.Fatalw(msg, args...) }
+func (a *adapter) With(args ...any) logger.Logger { return &adapter{l: a.l.With(args...)} }
+func (a *adapter) Sync() error {
+	err := a.l.Sync()
+	if err != nil && !isIgnorableSyncErr(err) {
+		return err
+	}
+	return nil
 }
 
 func ensureDirectories(paths []string) error {
@@ -175,39 +112,40 @@ func ensureDirectories(paths []string) error {
 		}
 
 		dir := filepath.Dir(path)
-
 		if dir != "." && dir != "/" {
 			if err := os.MkdirAll(dir, 0o750); err != nil {
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 
+// isIgnorableSyncErr: Linux/Mac'te stdout sync hatalarını yutmak için.
 func isIgnorableSyncErr(err error) bool {
 	if err == nil {
 		return false
 	}
 
+	// Doğrudan syscall hatası mı?
 	var errno syscall.Errno
 	if errors.As(err, &errno) && isIgnorableErrno(errno) {
 		return true
 	}
 
+	// PathError içine sarılmış mı?
 	var pathErr *os.PathError
 	if errors.As(err, &pathErr) {
 		if errors.As(pathErr.Err, &errno) && isIgnorableErrno(errno) {
 			return true
 		}
 	}
-
 	return false
 }
 
 func isIgnorableErrno(errno syscall.Errno) bool {
 	switch errno {
+	// ENOTTY: Inappropriate ioctl for device (genelde stdout redirect edildiğinde çıkar)
 	case syscall.ENOTTY, syscall.EINVAL, syscall.EPIPE, syscall.ENOSYS:
 		return true
 	default:
