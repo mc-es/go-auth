@@ -1,0 +1,11 @@
+{
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "editor.rulers": [
+    120
+  ],
+  "go.useLanguageServer": true,
+  "[go]": {
+    "editor.defaultFormatter": "golang.go"
+  },
+}
