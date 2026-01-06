@@ -1,9 +1,11 @@
 SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
 
 .PHONY: \
 	help \
 	build run \
 	test test-race test-coverage \
+	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
 	clean clean-cache clean-vendor clean-all
 
@@ -29,23 +31,29 @@ define print_warning
 	echo "$(YELLOW)⚠ $(1)$(RESET)"
 endef
 
-define print_error
-	echo "$(RED)✘ $(1)$(RESET)"
-endef
-
 # Commands
 GO := go
 
 # Paths
-APP_NAME     := app
 PROJECT_ROOT := $(shell pwd)
 COVERAGE_DIR := $(PROJECT_ROOT)/coverage
 BIN_DIR      := $(PROJECT_ROOT)/bin
+TOOLS_DIR    := $(BIN_DIR)/tools
+
+# App
+APP_NAME     := app
 APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
+
+# Tool Versions
+LINT_VERSION     := v2.7.2
+VULN_VERSION     := v1.1.4
+
+# Tool Binaries
+LINT     := $(TOOLS_DIR)/golangci-lint
+VULN     := $(TOOLS_DIR)/govulncheck
 
 # Build Metadata
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
-GIT_DIRTY  := $(shell git diff --quiet || echo "+CHANGES")
 BUILD_DATE := $(shell date '+%Y-%m-%d-%H:%M:%S')
 VERSION    := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS    := -s -w -X main.version=$(VERSION) -X main.commit=$(GIT_COMMIT) -X main.date=$(BUILD_DATE)
@@ -54,11 +62,19 @@ LDFLAGS    := -s -w -X main.version=$(VERSION) -X main.commit=$(GIT_COMMIT) -X m
 .DEFAULT_GOAL := help
 
 # Directories
-$(BIN_DIR):
-	@mkdir -p $(BIN_DIR)
+$(BIN_DIR) $(TOOLS_DIR) $(COVERAGE_DIR):
+	@mkdir -p $@
 
-$(COVERAGE_DIR):
-	@mkdir -p $(COVERAGE_DIR)
+# Tools Installation
+$(LINT): | $(TOOLS_DIR)
+	@$(call print_header,"Installing golangci-lint@$(LINT_VERSION)...")
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(TOOLS_DIR)" $(LINT_VERSION)
+	@$(call print_success,"golangci-lint installed successfully!")
+
+$(VULN): | $(TOOLS_DIR)
+	@$(call print_header,"Installing govulncheck@$(VULN_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/vuln/cmd/govulncheck@$(VULN_VERSION)
+	@$(call print_success,"govulncheck installed successfully!")
 
 
 # --- Help ---
@@ -76,45 +92,49 @@ help: ## Show this help message
 
 
 # --- Build & Run ---
-build: | $(BIN_DIR) ## Build the application
+build: | $(BIN_DIR) ## Build the binary
 	@$(call print_header,"Building binary...")
-	@if $(GO) build -o "$(APP_BINARY)" -ldflags '$(LDFLAGS)' $(PROJECT_ROOT)/cmd/app; then \
-		$(call print_success,"Build complete: $(APP_BINARY)"); \
-		echo "  Commit: $(GIT_COMMIT)"; \
-		echo "  Date:   $(BUILD_DATE)"; \
-	else \
-		$(call print_error,"Build failed!"); \
-		exit 1; \
-	fi
+	@$(GO) build -o "$(APP_BINARY)" -ldflags '$(LDFLAGS)' ./cmd/app
+	@$(call print_success,"Build complete: $(APP_BINARY)")
 
 run: build ## Run the application
-	@$(call print_header,"Running application...")
+	@$(call print_header,"Starting application...")
 	@"$(APP_BINARY)"
 
 
 # --- Testing & Coverage ---
-test: ## Run tests (fast, no race)
+test: ## Run unit tests
 	@$(call print_header,"Running tests...")
-	@$(GO) test -v $(PROJECT_ROOT)/...
+	@$(GO) test -v ./...
+	@$(call print_success,"All tests passed!")
 
 test-race: ## Run tests with race detector
-	@$(call print_header,"Running tests with race detector...")
-	@if $(GO) test -v -race $(PROJECT_ROOT)/...; then \
-		$(call print_success,"Race tests passed!"); \
-	else \
-		$(call print_error,"Tests failed!"); \
-		exit 1; \
-	fi
+	@$(call print_header,"Running race tests...")
+	@$(GO) test -v -race ./...
+	@$(call print_success,"Race tests passed!")
 
-test-coverage: | $(COVERAGE_DIR) ## Run tests with coverage
-	@$(call print_header,"Generating coverage report...")
-	@if $(GO) test -v -race -coverprofile=$(COVERAGE_DIR)/coverage.out $(PROJECT_ROOT)/...; then \
-		$(GO) tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html; \
-		$(call print_success,"Report saved: $(COVERAGE_DIR)/coverage.html"); \
-	else \
-		$(call print_error,"Tests failed!"); \
-		exit 1; \
-	fi
+test-coverage: | $(COVERAGE_DIR) ## Generate coverage report
+	@$(call print_header,"Generating coverage...")
+	@$(GO) test -v -race -coverprofile=$(COVERAGE_DIR)/coverage.out ./...
+	@$(GO) tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
+	@$(call print_success,"Report generated: $(COVERAGE_DIR)/coverage.html")
+
+
+# --- Code Quality ---
+lint: $(LINT) ## Run linter (golangci-lint)
+	@$(call print_header,"Running golangci-lint...")
+	@"$(LINT)" run ./...
+	@$(call print_success,"Lint checks passed!")
+
+format: ## Format code (gofmt)
+	@$(call print_header,"Formatting code...")
+	@$(GO) fmt ./...
+	@$(call print_success,"Code formatted!")
+
+vuln: $(VULN) ## Check vulnerabilities (govulncheck)
+	@$(call print_header,"Scanning for vulnerabilities...")
+	@"$(VULN)" ./...
+	@$(call print_success,"No vulnerabilities found!")
 
 
 # --- Dependencies ---
@@ -136,19 +156,19 @@ deps-upgrade: ## Upgrade direct dependencies
 
 
 # --- Cleanup ---
-clean: ## Clean directories (bin, coverage)
-	@$(call print_header,"Cleaning directories...")
+clean: ## Remove artifacts (bin, coverage)
+	@$(call print_header,"Cleaning artifacts...")
 	@rm -rf "$(BIN_DIR)" "$(COVERAGE_DIR)"
-	@$(call print_success,"Directories cleaned")
+	@$(call print_success,"Artifacts cleaned!")
 
-clean-cache: ## Clean Go cache (cache, testcache)
+clean-cache: ## Remove Go cache (cache, testcache)
 	@$(call print_header,"Cleaning Go cache...")
 	@$(GO) clean -cache -testcache
-	@$(call print_success,"Go cache cleaned")
+	@$(call print_success,"Go cache cleaned!")
 
-clean-vendor: ## Clean vendor directory
+clean-vendor: ## Remove vendor directory
 	@$(call print_header,"Cleaning vendor directory...")
 	@rm -rf vendor
-	@$(call print_success,"Vendor directory cleaned")
+	@$(call print_success,"Vendor directory cleaned!")
 
 clean-all: clean clean-cache clean-vendor ## Deep clean everything

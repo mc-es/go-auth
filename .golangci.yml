@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=https://json.schemastore.org/golangci-lint.json
+
+version: "2"
+
+run:
+  go: "1.25"
+  timeout: 3m
+  relative-path-mode: cfg
+  issues-exit-code: 1
+  tests: false
+  allow-parallel-runners: false
+
+output:
+  show-stats: true
+  path-mode: abs
+  sort-order:
+    - severity
+    - file
+    - linter
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+      colors: true
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
+  new: false
+  fix: true
+  uniq-by-line: true
+  whole-files: false
+
+formatters:
+  enable:
+    - gci
+    - gofumpt
+    - golines
+    - swaggo
+  settings:
+    gci:
+      no-inline-comments: true
+      no-prefix-comments: true
+      custom-order: true
+      no-lex-order: false
+      sections:
+        - standard
+        - default
+        - prefix(go-auth)
+    gofumpt:
+      extra-rules: true
+    golines:
+      max-len: 120
+      tab-len: 2
+      shorten-comments: true
+      reformat-tags: true
+      chain-split-dots: true
+
+linters:
+  default: fast
+  enable:
+    - bodyclose
+    - contextcheck
+    - containedctx
+    - depguard
+    - durationcheck
+    - errcheck
+    - errname
+    - exhaustive
+    - exptostd
+    - forbidigo
+    - goconst
+    - gocritic
+    - gosec
+    - govet
+    - modernize
+    - nilerr
+    - revive
+    - staticcheck
+    - unparam
+    - varnamelen
+    - wastedassign
+    - wsl_v5
+  disable:
+    - wsl # deprecated
+  settings:
+    depguard:
+      rules:
+        main:
+          list-mode: original
+          files:
+            - "**/*.go"
+          deny:
+            - pkg: "log$"
+              desc: "Use inline logger instead of log package."
+            - pkg: "github.com/pkg/errors"
+              desc: "Use std 'errors' and `fmt.Errorf` instead."
+    gocritic:
+      enable-all: true
+      disabled-checks:
+        - whyNoLint
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # Optimizes struct field order for memory efficiency, but prefer code readability
+    mnd:
+      checks:
+        - case
+        - operation
+        - return
+        - assign
+    tagalign:
+      align: true
+      sort: true
+    varnamelen:
+      min-name-length: 2
+      ignore-names:
+        - i # for loops
