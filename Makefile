@@ -7,6 +7,7 @@ SHELL := /bin/bash
 	test test-race test-coverage \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
+	install-lefthook \
 	clean clean-cache clean-vendor clean-all
 
 # Colors & Formatting
@@ -49,11 +50,13 @@ APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
 LINT_VERSION     := v2.7.2
 VULN_VERSION     := v1.1.4
 AIR_VERSION      := v1.63.4
+LEFTHOOK_VERSION := v2.0.13
 
 # Tool Binaries
 LINT     := $(TOOLS_DIR)/golangci-lint
 VULN     := $(TOOLS_DIR)/govulncheck
 AIR      := $(TOOLS_DIR)/air
+LEFTHOOK := $(TOOLS_DIR)/lefthook
 
 # Build Metadata
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -83,6 +86,11 @@ $(AIR): | $(TOOLS_DIR)
 	@$(call print_header,"Installing air@$(AIR_VERSION)...")
 	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/air-verse/air@$(AIR_VERSION)
 	@$(call print_success,"air installed successfully!")
+
+$(LEFTHOOK): | $(TOOLS_DIR)
+	@$(call print_header,"Installing lefthook@$(LEFTHOOK_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/evilmartians/lefthook/v2@$(LEFTHOOK_VERSION)
+	@$(call print_success,"lefthook installed successfully!")
 
 
 # --- Help ---
@@ -167,11 +175,22 @@ deps-upgrade: ## Upgrade direct dependencies
 	@$(call print_success,"Dependencies upgraded!")
 
 
+# --- Lefthook ---
+install-lefthook: $(LEFTHOOK) ## Install lefthook and configure them (pre-commit, commit-msg, pre-push)
+	@if [ -d ".git" ]; then \
+		"$(LEFTHOOK)" install; \
+		$(call print_success,Lefthook installed and configured!); \
+	else \
+		$(call print_warning,Not a git repo, skipping hook configuration!); \
+	fi
+
+
 # --- Cleanup ---
-clean: ## Remove artifacts (bin, coverage, tmp)
-	@$(call print_header,"Cleaning artifacts...")
+clean: ## Remove artifacts (bin, coverage, tmp) and uninstall hooks
+	@$(call print_header,"Cleaning artifacts and uninstalling hooks...")
+	@if [ -f "$(LEFTHOOK)" ]; then "$(LEFTHOOK)" uninstall; fi
 	@rm -rf "$(BIN_DIR)" "$(COVERAGE_DIR)" "$(TMP_DIR)"
-	@$(call print_success,"Artifacts cleaned!")
+	@$(call print_success,"Artifacts cleaned and hooks uninstalled!")
 
 clean-cache: ## Remove Go cache (cache, testcache)
 	@$(call print_header,"Cleaning Go cache...")
