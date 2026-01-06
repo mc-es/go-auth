@@ -8,4 +8,19 @@
   "[go]": {
     "editor.defaultFormatter": "golang.go"
   },
+  "json.schemaDownload.enable": true,
+  "json.schemas": [
+    {
+      "fileMatch": [
+        "release-please-config.json"
+      ],
+      "url": "https://cdn.jsdelivr.net/gh/googleapis/release-please/schemas/config.json"
+    },
+    {
+      "fileMatch": [
+        ".release-please-manifest.json"
+      ],
+      "url": "https://cdn.jsdelivr.net/gh/googleapis/release-please/schemas/manifest.json"
+    }
+  ]
 }
