@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 .PHONY: \
 	help \
-	build run \
+	build run dev \
 	test test-race test-coverage \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
@@ -37,6 +37,7 @@ GO := go
 # Paths
 PROJECT_ROOT := $(shell pwd)
 COVERAGE_DIR := $(PROJECT_ROOT)/coverage
+TMP_DIR      := $(PROJECT_ROOT)/tmp
 BIN_DIR      := $(PROJECT_ROOT)/bin
 TOOLS_DIR    := $(BIN_DIR)/tools
 
@@ -47,10 +48,12 @@ APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
 # Tool Versions
 LINT_VERSION     := v2.7.2
 VULN_VERSION     := v1.1.4
+AIR_VERSION      := v1.63.4
 
 # Tool Binaries
 LINT     := $(TOOLS_DIR)/golangci-lint
 VULN     := $(TOOLS_DIR)/govulncheck
+AIR      := $(TOOLS_DIR)/air
 
 # Build Metadata
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -76,6 +79,11 @@ $(VULN): | $(TOOLS_DIR)
 	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/vuln/cmd/govulncheck@$(VULN_VERSION)
 	@$(call print_success,"govulncheck installed successfully!")
 
+$(AIR): | $(TOOLS_DIR)
+	@$(call print_header,"Installing air@$(AIR_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/air-verse/air@$(AIR_VERSION)
+	@$(call print_success,"air installed successfully!")
+
 
 # --- Help ---
 help: ## Show this help message
@@ -100,6 +108,10 @@ build: | $(BIN_DIR) ## Build the binary
 run: build ## Run the application
 	@$(call print_header,"Starting application...")
 	@"$(APP_BINARY)"
+
+dev: $(AIR) ## Run with live reload (Air)
+	@$(call print_header,"Starting Air...")
+	@"$(AIR)"
 
 
 # --- Testing & Coverage ---
@@ -156,9 +168,9 @@ deps-upgrade: ## Upgrade direct dependencies
 
 
 # --- Cleanup ---
-clean: ## Remove artifacts (bin, coverage)
+clean: ## Remove artifacts (bin, coverage, tmp)
 	@$(call print_header,"Cleaning artifacts...")
-	@rm -rf "$(BIN_DIR)" "$(COVERAGE_DIR)"
+	@rm -rf "$(BIN_DIR)" "$(COVERAGE_DIR)" "$(TMP_DIR)"
 	@$(call print_success,"Artifacts cleaned!")
 
 clean-cache: ## Remove Go cache (cache, testcache)
