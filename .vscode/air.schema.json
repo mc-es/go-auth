@@ -1,0 +1,370 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Air Configuration Schema",
+  "description": "Configuration schema for Air, a live reload utility for Go applications.",
+  "type": "object",
+  "properties": {
+    "root": {
+      "type": "string",
+      "description": "The root directory of the project.",
+      "default": ".",
+      "examples": [
+        ".",
+        "/path/to/project"
+      ]
+    },
+    "tmp_dir": {
+      "type": "string",
+      "description": "The directory to store temporary files.",
+      "default": "tmp",
+      "examples": [
+        "tmp",
+        "/path/to/tmp"
+      ]
+    },
+    "build": {
+      "type": "object",
+      "description": "Build and run settings.",
+      "properties": {
+        "pre_cmd": {
+          "type": "array",
+          "description": "Array of commands to run before each build.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "echo 'Building project...'"
+          ]
+        },
+        "cmd": {
+          "type": "string",
+          "description": "Just plain old shell command. You could use `make` as well.",
+          "examples": [
+            "go build -o ./tmp/main ./cmd/app",
+            "go build -o ./tmp/main ./cmd/app -tags=dev"
+          ]
+        },
+        "post_cmd": {
+          "type": "array",
+          "description": "Array of commands to run after ^C",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "echo 'Project built successfully...'"
+          ]
+        },
+        "bin": {
+          "type": "string",
+          "description": "Binary file yields from 'cmd', will be deprecated soon, recommend using entrypoint.",
+          "examples": [
+            "./tmp/main",
+            "/path/to/main"
+          ]
+        },
+        "entrypoint": {
+          "type": "array",
+          "description": "Entrypoint binary relative to root. First item is the executable, more items are default arguments.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "go run ./cmd/app",
+            "./tmp/main",
+            "--config",
+            "/path/to/config.yaml"
+          ]
+        },
+        "full_bin": {
+          "type": "string",
+          "description": "Customize binary, can setup environment variables when run your app.",
+          "examples": [
+            "APP_ENV=dev ./tmp/main"
+          ]
+        },
+        "args_bin": {
+          "type": "array",
+          "description": "Add additional arguments when running binary (bin/full_bin). Will run './tmp/main hello world'.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "hello",
+            "world"
+          ]
+        },
+        "include_ext": {
+          "type": "array",
+          "description": "Watch these filename extensions.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "go",
+            "tpl",
+            "tmpl",
+            "env"
+          ]
+        },
+        "exclude_dir": {
+          "type": "array",
+          "description": "Ignore these filename extensions or directories.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "assets",
+            "tmp",
+            "vendor",
+            "dist",
+            "build"
+          ]
+        },
+        "include_dir": {
+          "type": "array",
+          "description": "Watch these directories if you specified.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "cmd",
+            "internal"
+          ]
+        },
+        "include_file": {
+          "type": "array",
+          "description": "Watch these files if you specified.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "main.go",
+            "server.go"
+          ]
+        },
+        "exclude_file": {
+          "type": "array",
+          "description": "Ignore these files if you specified.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "main.go",
+            "server.go"
+          ]
+        },
+        "exclude_regex": {
+          "type": "array",
+          "description": "Exclude specific regular expressions.",
+          "items": {
+            "type": "string"
+          },
+          "examples": [
+            "^tmp/",
+            "^.git/",
+            "_test\\.go"
+          ]
+        },
+        "exclude_unchanged": {
+          "type": "boolean",
+          "description": "Exclude unchanged files.",
+          "default": false
+        },
+        "follow_symlink": {
+          "type": "boolean",
+          "description": "Follow symlink for directories.",
+          "default": false
+        },
+        "log": {
+          "type": "string",
+          "description": "This log file is placed in your tmp_dir.",
+          "examples": [
+            "build-errors.log",
+            "/path/to/log.txt"
+          ]
+        },
+        "poll": {
+          "type": "boolean",
+          "description": "Poll files for changes instead of using fsnotify.",
+          "default": false
+        },
+        "poll_interval": {
+          "type": "integer",
+          "description": "Poll interval (defaults to the minimum interval of 500ms).",
+          "minimum": 100,
+          "maximum": 10000,
+          "examples": [
+            1000,
+            2000,
+            3000
+          ]
+        },
+        "delay": {
+          "type": "integer",
+          "description": "It's not necessary to trigger build each time file changes if it's too frequent.",
+          "minimum": 100,
+          "maximum": 10000,
+          "examples": [
+            1000,
+            2000,
+            3000
+          ]
+        },
+        "stop_on_error": {
+          "type": "boolean",
+          "description": "Stop running old binary when build errors occur.",
+          "default": false
+        },
+        "send_interrupt": {
+          "type": "boolean",
+          "description": "Send Interrupt signal before killing process (windows does not support this feature)",
+          "default": false
+        },
+        "kill_delay": {
+          "type": "integer",
+          "description": "Delay after sending Interrupt signal. (nanoseconds)",
+          "minimum": 100,
+          "maximum": 10000,
+          "examples": [
+            1000,
+            2000,
+            3000
+          ]
+        },
+        "rerun": {
+          "type": "boolean",
+          "description": "Rerun binary or not.",
+          "default": false
+        },
+        "rerun_delay": {
+          "type": "integer",
+          "description": "Delay after each execution.",
+          "minimum": 100,
+          "maximum": 10000,
+          "examples": [
+            1000,
+            2000,
+            3000
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "log": {
+      "type": "object",
+      "description": "Log settings.",
+      "properties": {
+        "time": {
+          "type": "boolean",
+          "description": "Show log time.",
+          "default": false
+        },
+        "main_only": {
+          "type": "boolean",
+          "description": "Show only main log (silences watcher, build, runner)",
+          "default": false
+        },
+        "silent": {
+          "type": "boolean",
+          "description": "Silence all logs.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "color": {
+      "type": "object",
+      "description": "Color settings.",
+      "properties": {
+        "main": {
+          "$ref": "#/$defs/colorEnum"
+        },
+        "watcher": {
+          "$ref": "#/$defs/colorEnum"
+        },
+        "build": {
+          "$ref": "#/$defs/colorEnum"
+        },
+        "runner": {
+          "$ref": "#/$defs/colorEnum"
+        }
+      },
+      "additionalProperties": false
+    },
+    "misc": {
+      "type": "object",
+      "description": "Miscellaneous settings.",
+      "properties": {
+        "clean_on_exit": {
+          "type": "boolean",
+          "description": "Clean tmp_dir on exit.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "screen": {
+      "type": "object",
+      "description": "Screen settings.",
+      "properties": {
+        "clear_on_rebuild": {
+          "type": "boolean",
+          "description": "Clear screen on rebuild.",
+          "default": false
+        },
+        "keep_scroll": {
+          "type": "boolean",
+          "description": "Keep scroll when rebuild.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "proxy": {
+      "type": "object",
+      "description": "Proxy settings.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable proxy.",
+          "default": false
+        },
+        "proxy_port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "examples": [
+            8090,
+            8000
+          ]
+        },
+        "app_port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535,
+          "examples": [
+            8080,
+            3000
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "colorEnum": {
+      "type": "string",
+      "enum": [
+        "black",
+        "red",
+        "green",
+        "yellow",
+        "blue",
+        "magenta",
+        "cyan",
+        "white"
+      ]
+    }
+  }
+}

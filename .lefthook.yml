@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://json.schemastore.org/lefthook.json
+
+lefthook: "./bin/tools/lefthook"
+
+pre-commit:
+  parallel: false
+  commands:
+    lint:
+      run: make lint
+      stage_fixed: true
+    tidy:
+      run: make deps-tidy
+      stage_fixed: true
+    verify:
+      run: make deps-check
+
+commit-msg:
+  parallel: false
+  commands:
+    commitlint:
+      run: go run ./cmd/commitlint {1}
+      env:
+        COMMITLINT_MSG_MAX_LEN: "120"
+        COMMITLINT_SCOPE_MIN_LEN: "2"
+        COMMITLINT_SCOPE_MAX_LEN: "15"
+        COMMITLINT_SUBJECT_MIN_LEN: "3"
+
+pre-push:
+  parallel: false
+  commands:
+    vuln:
+      run: make vuln

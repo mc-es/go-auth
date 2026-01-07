@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "golang.go",
+    "tamasfe.even-better-toml",
+    "ms-vscode.makefile-tools",
+    "editorconfig.editorconfig",
+    "redhat.vscode-yaml",
+    "ms-azuretools.vscode-docker"
+  ],
+}
