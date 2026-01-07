@@ -20,7 +20,7 @@ commit-msg:
     commitlint:
       run: go run ./cmd/commitlint {1}
       env:
-        COMMITLINT_MAX_HEADER_LEN: "120"
+        COMMITLINT_MSG_MAX_LEN: "120"
         COMMITLINT_SCOPE_MIN_LEN: "2"
         COMMITLINT_SCOPE_MAX_LEN: "15"
         COMMITLINT_SUBJECT_MIN_LEN: "3"

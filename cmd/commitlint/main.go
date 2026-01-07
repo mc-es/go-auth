@@ -11,11 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 )
 
-// commitType enumerates the allowed commit categories.
 type commitType string
 
 const (
@@ -30,14 +27,6 @@ const (
 	build    commitType = "build"
 )
 
-const (
-	defaultMaxHeaderLen  = 100
-	defaultScopeMinLen   = 2
-	defaultScopeMaxLen   = 15
-	defaultSubjectMinLen = 3
-)
-
-// commitMessage holds the parsed commit header information.
 type commitMessage struct {
 	raw        string
 	typ        commitType
@@ -46,56 +35,124 @@ type commitMessage struct {
 	isBreaking bool
 }
 
-// ruleFunc defines the function signature for validation rules.
-type ruleFunc func(msg commitMessage, lint *linter) string
-
-// linter defines the validation rules for commit messages.
-type linter struct {
-	allowedTypes  map[commitType]struct{}
-	scopeRegex    *regexp.Regexp
-	rules         []ruleFunc
-	maxHeaderLen  int
+type config struct {
+	msgMaxLen     int
 	scopeMinLen   int
 	scopeMaxLen   int
 	subjectMinLen int
 }
 
-// main is the entry point for the commitlint tool.
+type ruleFunc func(msg commitMessage, lint *linter) error
+
+type linter struct {
+	allowedTypes         map[commitType]struct{}
+	allowedBreakingTypes map[commitType]struct{}
+	scopeRegex           *regexp.Regexp
+	rules                []ruleFunc
+	config               config
+}
+
+type errorKind int
+
+const (
+	errParse errorKind = iota
+	errValidate
+)
+
+type linterError struct {
+	kind   errorKind
+	errors []error
+}
+
+func (e linterError) Error() string {
+	parts := make([]string, 0, len(e.errors))
+	for _, err := range e.errors {
+		parts = append(parts, err.Error())
+	}
+
+	return strings.Join(parts, "; ")
+}
+
+var (
+	// Parse errors.
+	errEmptyMessage       = errors.New("commit message is empty")
+	errMissingSeparator   = errors.New("missing colon separator and space")
+	errMismatchedParens   = errors.New("mismatched parentheses in scope definition")
+	errInvalidScopeFormat = errors.New("invalid scope format")
+	errEmptyScopeParens   = errors.New("scope cannot be empty when parentheses are used")
+
+	// Validation errors.
+	errMsgTooLong            = errors.New("commit message is too long")
+	errNonASCII              = errors.New("commit message contains non-ASCII characters")
+	errTypeInvalid           = errors.New("type is invalid")
+	errScopeRequired         = errors.New("scope is required")
+	errScopeTooShort         = errors.New("scope is too short")
+	errScopeTooLong          = errors.New("scope is too long")
+	errScopeInvalidChar      = errors.New("scope contains invalid characters (lowercase, numbers, -, _)")
+	errInvalidBreakingType   = errors.New("breaking changes (!) are not allowed for this commit type")
+	errSubjectTooShort       = errors.New("subject is too short")
+	errSubjectLeadingSpace   = errors.New("subject contains leading whitespace")
+	errSubjectDoubleSpace    = errors.New("subject contains double spaces")
+	errSubjectNotLowercase   = errors.New("subject must start with a lowercase letter")
+	errSubjectEndsWithPeriod = errors.New("subject cannot end with a period")
+)
+
+const (
+	defaultMsgMaxLen     = 100
+	defaultScopeMinLen   = 2
+	defaultScopeMaxLen   = 15
+	defaultSubjectMinLen = 3
+)
+
+// main is the entry point.
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: commitlint <path-to-msg-file>")
+	if err := run(os.Args); err != nil {
+		if le, ok := err.(linterError); ok {
+			switch le.kind {
+			case errParse:
+				fmt.Fprintln(os.Stderr, "❌ Format error:")
+			case errValidate:
+				fmt.Fprintln(os.Stderr, "❌ Validation errors:")
+			}
+
+			for _, e := range le.errors {
+				fmt.Fprintf(os.Stderr, "  - %s\n", e)
+			}
+		} else {
+			fmt.Fprintln(os.Stderr, err)
+		}
+
 		os.Exit(1)
 	}
+}
 
-	file, err := os.Open(os.Args[1])
+// run runs the commitlint command.
+func run(args []string) error {
+	if len(args) < 2 {
+		return errors.New("usage: commitlint <path-to-msg-file>")
+	}
+
+	file, err := os.Open(args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error opening file: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	header, err := readFirstLine(file)
-	if closeErr := file.Close(); closeErr != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error closing file: %v\n", closeErr)
-	}
+	defer func() { _ = file.Close() }()
 
+	rawCommitMsg, err := readFirstLine(file)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Error reading file: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 
-	msg, err := parseHeader(header)
+	parsedMsg, err := parseCommitMessage(rawCommitMsg)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Format error: %v\n", err)
-		fmt.Fprintln(os.Stderr, "👉 Usage: type(scope): subject")
-		fmt.Fprintln(os.Stderr, "👉 Example: fix(auth): handle jwt expiration")
-		os.Exit(1)
+		return linterError{
+			kind:   errParse,
+			errors: []error{err},
+		}
 	}
 
-	lint := defaultLinter()
-	if err := lint.validate(msg); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
+	return newLinter().validate(parsedMsg)
 }
 
 // readFirstLine reads the first line of the commit message.
@@ -114,21 +171,18 @@ func readFirstLine(r io.Reader) (string, error) {
 		return "", err
 	}
 
-	return "", errors.New("commit message is empty")
+	return "", errEmptyMessage
 }
 
-// parseHeader parses the header of the commit message.
-func parseHeader(header string) (commitMessage, error) {
-	prefix, subject, found := strings.Cut(header, ": ")
+// parseCommitMessage parses the commit message.
+func parseCommitMessage(rawCommitMsg string) (commitMessage, error) {
+	prefix, subject, found := strings.Cut(rawCommitMsg, ": ")
 	if !found {
-		return commitMessage{}, errors.New("missing colon separator and space")
+		return commitMessage{}, errMissingSeparator
 	}
 
-	isBreaking := false
-	if strings.HasSuffix(prefix, "!") {
-		isBreaking = true
-		prefix = strings.TrimSuffix(prefix, "!")
-	}
+	isBreaking := strings.HasSuffix(prefix, "!")
+	prefix = strings.TrimSuffix(prefix, "!")
 
 	typ, scope, err := parseTypeAndScope(prefix)
 	if err != nil {
@@ -136,174 +190,239 @@ func parseHeader(header string) (commitMessage, error) {
 	}
 
 	return commitMessage{
+		raw:        rawCommitMsg,
 		typ:        typ,
 		scope:      scope,
 		subject:    subject,
-		raw:        header,
 		isBreaking: isBreaking,
 	}, nil
 }
 
-// parseTypeAndScope parses the type and scope information of the commit message.
+// parseTypeAndScope parses the type and scope from the commit message.
 func parseTypeAndScope(prefix string) (commitType, string, error) {
 	hasOpen := strings.Contains(prefix, "(")
 	hasClose := strings.Contains(prefix, ")")
 
 	if hasOpen != hasClose {
-		return "", "", errors.New("mismatched parentheses in scope definition")
+		return "", "", errMismatchedParens
 	}
 
 	if hasOpen {
 		if !strings.HasSuffix(prefix, ")") {
-			return "", "", errors.New("invalid scope format")
+			return "", "", errInvalidScopeFormat
 		}
 
-		prefixWithoutClosing := strings.TrimSuffix(prefix, ")")
-		parts := strings.SplitN(prefixWithoutClosing, "(", 2)
+		p := strings.TrimSuffix(prefix, ")")
+		parts := strings.SplitN(p, "(", 2)
 
-		typ := commitType(parts[0])
-		scope := parts[1]
-
-		if scope == "" {
-			return "", "", errors.New("scope cannot be empty when parentheses are used")
+		if parts[1] == "" {
+			return "", "", errEmptyScopeParens
 		}
 
-		return typ, scope, nil
+		return commitType(parts[0]), parts[1], nil
 	}
 
 	return commitType(prefix), "", nil
 }
 
-// getEnvInt retrieves an integer value from the environment variable with a default fallback.
-func getEnvInt(key string, defaultValue int) int {
-	val := os.Getenv(key)
-	if val == "" {
-		return defaultValue
-	}
+// newLinter creates a new linter.
+func newLinter() *linter {
+	cfg := loadConfig()
 
-	parsed, err := strconv.Atoi(val)
-	if err != nil {
-		return defaultValue
-	}
-
-	return parsed
-}
-
-// defaultLinter initializes a default linter with predefined validation rules.
-func defaultLinter() *linter {
 	lint := &linter{
-		maxHeaderLen:  getEnvInt("COMMITLINT_MAX_HEADER_LEN", defaultMaxHeaderLen),
-		scopeMinLen:   getEnvInt("COMMITLINT_SCOPE_MIN_LEN", defaultScopeMinLen),
-		scopeMaxLen:   getEnvInt("COMMITLINT_SCOPE_MAX_LEN", defaultScopeMaxLen),
-		subjectMinLen: getEnvInt("COMMITLINT_SUBJECT_MIN_LEN", defaultSubjectMinLen),
-		scopeRegex:    regexp.MustCompile(`^[a-z0-9_\-]+$`),
+		config:     cfg,
+		scopeRegex: regexp.MustCompile(`^[a-z0-9_-]+$`),
 	}
 
-	types := []commitType{
+	allTypes := []commitType{
 		feat, fix, chore, docs, style,
 		refactor, perf, test, build,
 	}
 
-	lint.allowedTypes = make(map[commitType]struct{}, len(types))
-	for _, t := range types {
+	breakingTypes := []commitType{
+		feat, build,
+	}
+
+	lint.allowedTypes = make(map[commitType]struct{})
+	for _, t := range allTypes {
 		lint.allowedTypes[t] = struct{}{}
+	}
+
+	lint.allowedBreakingTypes = make(map[commitType]struct{})
+	for _, t := range breakingTypes {
+		lint.allowedBreakingTypes[t] = struct{}{}
 	}
 
 	lint.rules = []ruleFunc{
 		checkLength,
+		checkASCII,
 		checkType,
 		checkScope,
+		checkBreaking,
 		checkSubject,
 	}
 
 	return lint
 }
 
-// validate runs all validation rules against the commit message.
+// loadConfig loads the configuration.
+func loadConfig() config {
+	cfg := config{
+		msgMaxLen:     getEnvAsInt("COMMITLINT_MSG_MAX_LEN", defaultMsgMaxLen),
+		scopeMinLen:   getEnvAsInt("COMMITLINT_SCOPE_MIN_LEN", defaultScopeMinLen),
+		scopeMaxLen:   getEnvAsInt("COMMITLINT_SCOPE_MAX_LEN", defaultScopeMaxLen),
+		subjectMinLen: getEnvAsInt("COMMITLINT_SUBJECT_MIN_LEN", defaultSubjectMinLen),
+	}
+
+	if cfg.msgMaxLen <= 0 {
+		cfg.msgMaxLen = defaultMsgMaxLen
+	}
+
+	if cfg.scopeMinLen <= 0 {
+		cfg.scopeMinLen = defaultScopeMinLen
+	}
+
+	if cfg.scopeMaxLen <= 0 {
+		cfg.scopeMaxLen = defaultScopeMaxLen
+	}
+
+	if cfg.subjectMinLen <= 0 {
+		cfg.subjectMinLen = defaultSubjectMinLen
+	}
+
+	if cfg.scopeMinLen > cfg.scopeMaxLen {
+		cfg.scopeMinLen, cfg.scopeMaxLen = cfg.scopeMaxLen, cfg.scopeMinLen
+	}
+
+	return cfg
+}
+
+// getEnvAsInt gets an environment variable as an integer.
+func getEnvAsInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return fallback
+	}
+
+	return n
+}
+
+// validate runs all the rules on the commit message.
 func (lint *linter) validate(msg commitMessage) error {
-	var errs []string
+	var errs []error
 
 	for _, rule := range lint.rules {
-		if errMsg := rule(msg, lint); errMsg != "" {
-			errs = append(errs, errMsg)
+		if err := rule(msg, lint); err != nil {
+			errs = append(errs, err)
 		}
 	}
 
 	if len(errs) > 0 {
-		return errors.New("❌ Validation errors:\n  - " + strings.Join(errs, "\n  - "))
+		return linterError{
+			kind:   errValidate,
+			errors: errs,
+		}
 	}
 
 	return nil
 }
 
-// checkLength checks if the commit message header exceeds the maximum allowed length.
-func checkLength(msg commitMessage, lint *linter) string {
-	if count := utf8.RuneCountInString(msg.raw); count > lint.maxHeaderLen {
-		return fmt.Sprintf("header is too long (max %d chars)", lint.maxHeaderLen)
+// checkLength checks if the commit message is too long.
+func checkLength(msg commitMessage, lint *linter) error {
+	if len(msg.raw) > lint.config.msgMaxLen {
+		return fmt.Errorf("%w (max %d chars)", errMsgTooLong, lint.config.msgMaxLen)
 	}
 
-	return ""
+	return nil
 }
 
-// checkType ensures the commit message type is one of the allowed types.
-func checkType(msg commitMessage, lint *linter) string {
+// checkASCII checks if the commit message contains non-ASCII characters.
+func checkASCII(msg commitMessage, _ *linter) error {
+	for i := 0; i < len(msg.raw); i++ {
+		if msg.raw[i] > 127 {
+			return fmt.Errorf("%w (got '%c')", errNonASCII, msg.raw[i])
+		}
+	}
+
+	return nil
+}
+
+// checkType checks if the commit type is allowed.
+func checkType(msg commitMessage, lint *linter) error {
 	if _, ok := lint.allowedTypes[msg.typ]; !ok {
-		allowed := make([]string, 0, len(lint.allowedTypes))
+		var allowed []string
 		for t := range lint.allowedTypes {
 			allowed = append(allowed, string(t))
 		}
 
 		sort.Strings(allowed)
 
-		return fmt.Sprintf("type is invalid (allowed: %s)", strings.Join(allowed, ", "))
+		return fmt.Errorf("%w (allowed: %s)", errTypeInvalid, strings.Join(allowed, ", "))
 	}
 
-	return ""
+	return nil
 }
 
-// checkScope checks if the scope is within the allowed length and format.
-func checkScope(msg commitMessage, lint *linter) string {
+// checkScope checks if the scope is allowed.
+func checkScope(msg commitMessage, lint *linter) error {
 	if msg.scope == "" {
-		return "scope is required"
+		return errScopeRequired
 	}
 
-	count := utf8.RuneCountInString(msg.scope)
-	if count < lint.scopeMinLen {
-		return fmt.Sprintf("scope is too short (min %d chars)", lint.scopeMinLen)
+	n := len(msg.scope)
+	if n < lint.config.scopeMinLen {
+		return fmt.Errorf("%w (min %d chars)", errScopeTooShort, lint.config.scopeMinLen)
 	}
 
-	if count > lint.scopeMaxLen {
-		return fmt.Sprintf("scope is too long (max %d chars)", lint.scopeMaxLen)
+	if n > lint.config.scopeMaxLen {
+		return fmt.Errorf("%w (max %d chars)", errScopeTooLong, lint.config.scopeMaxLen)
 	}
 
 	if !lint.scopeRegex.MatchString(msg.scope) {
-		return "scope contains invalid characters (lowercase, numbers, -, _)"
+		return errScopeInvalidChar
 	}
 
-	return ""
+	return nil
 }
 
-// checkSubject ensures the subject meets all formatting and style requirements.
-func checkSubject(msg commitMessage, lint *linter) string {
+// checkBreaking checks if the commit is a breaking change.
+func checkBreaking(msg commitMessage, lint *linter) error {
+	if msg.isBreaking {
+		if _, ok := lint.allowedBreakingTypes[msg.typ]; !ok {
+			return fmt.Errorf("%w (got '%s')", errInvalidBreakingType, msg.typ)
+		}
+	}
+
+	return nil
+}
+
+// checkSubject checks if the subject is allowed.
+func checkSubject(msg commitMessage, lint *linter) error {
+	if len(msg.subject) < lint.config.subjectMinLen {
+		return fmt.Errorf("%w (min %d chars)", errSubjectTooShort, lint.config.subjectMinLen)
+	}
+
 	if strings.HasPrefix(msg.subject, " ") {
-		return "subject contains extra leading whitespace"
+		return errSubjectLeadingSpace
 	}
 
 	if strings.Contains(msg.subject, "  ") {
-		return "subject contains consecutive whitespaces"
+		return errSubjectDoubleSpace
 	}
 
-	if utf8.RuneCountInString(msg.subject) < lint.subjectMinLen {
-		return fmt.Sprintf("subject is too short (min %d chars)", lint.subjectMinLen)
+	first := msg.subject[0]
+	if first < 'a' || first > 'z' {
+		return fmt.Errorf("%w (got '%c')", errSubjectNotLowercase, first)
 	}
 
 	if strings.HasSuffix(msg.subject, ".") {
-		return "subject cannot end with a period"
+		return errSubjectEndsWithPeriod
 	}
 
-	if first, _ := utf8.DecodeRuneInString(msg.subject); !unicode.IsLower(first) {
-		return fmt.Sprintf("subject must start with a lowercase letter (got '%c')", first)
-	}
-
-	return ""
+	return nil
 }
