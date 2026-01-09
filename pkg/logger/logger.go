@@ -14,7 +14,8 @@ var A = core.NewAttr
 
 // Public constants for logger configuration.
 const (
-	DriverZap = core.Driver("zap")
+	DriverZap    = core.Driver("zap")
+	DriverLogrus = core.Driver("logrus")
 
 	LevelDebug = core.LevelDebug
 	LevelInfo  = core.LevelInfo
