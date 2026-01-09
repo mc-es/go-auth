@@ -1,9 +1,19 @@
-// Package main is the main package for the app.
 package main
 
-import "fmt"
+import (
+	"go-auth/pkg/logger"
+	_ "go-auth/pkg/logger/adapter/zap"
+)
 
-//nolint:forbidigo
 func main() {
-	fmt.Println("Hello, World!")
+	log, err := logger.New(
+		logger.WithDevelopment(),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	defer func() { _ = log.Sync() }()
+
+	log.Info("Hello, World!", logger.A("key", "value"))
 }

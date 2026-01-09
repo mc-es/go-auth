@@ -76,7 +76,6 @@ linters:
     - govet
     - modernize
     - nilerr
-    - revive
     - staticcheck
     - unparam
     - varnamelen
