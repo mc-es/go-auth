@@ -1,36 +1,16 @@
 package core
 
-import "time"
-
-type Driver string
-
-type Level int8
-
-const (
-	LevelDebug Level = iota - 1
-	LevelInfo
-	LevelWarn
-	LevelError
-	LevelPanic
-	LevelFatal
+import (
+	"context"
+	"time"
 )
 
-type Format string
-
-const (
-	FormatText Format = "text"
-	FormatJSON Format = "json"
-)
-
-type TimeLayout string
-
-const (
-	TimeLayoutDateTime TimeLayout = time.DateTime
-	TimeLayoutDateOnly TimeLayout = time.DateOnly
-	TimeLayoutTimeOnly TimeLayout = time.TimeOnly
-	TimeLayoutRFC3339  TimeLayout = time.RFC3339
-	TimeLayoutRFC822   TimeLayout = time.RFC822
-	TimeLayoutRFC1123  TimeLayout = time.RFC1123
+type (
+	Driver         string
+	Level          int8
+	Format         string
+	TimeLayout     string
+	ExtractCtxFunc func(ctx context.Context) []Attr
 )
 
 type FileRotation struct {
@@ -49,4 +29,28 @@ type Config struct {
 	OutputPaths  []string
 	Development  bool
 	FileRotation FileRotation
+	Extractor    ExtractCtxFunc
 }
+
+const (
+	LevelDebug Level = iota - 1
+	LevelInfo
+	LevelWarn
+	LevelError
+	LevelPanic
+	LevelFatal
+)
+
+const (
+	FormatText Format = "text"
+	FormatJSON Format = "json"
+)
+
+const (
+	TimeLayoutDateTime TimeLayout = time.DateTime
+	TimeLayoutDateOnly TimeLayout = time.DateOnly
+	TimeLayoutTimeOnly TimeLayout = time.TimeOnly
+	TimeLayoutRFC3339  TimeLayout = time.RFC3339
+	TimeLayoutRFC822   TimeLayout = time.RFC822
+	TimeLayoutRFC1123  TimeLayout = time.RFC1123
+)

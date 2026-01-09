@@ -1,18 +1,30 @@
 package logger
 
 import (
-	"slices"
-
 	"go-auth/pkg/logger/internal/core"
 	"go-auth/pkg/logger/internal/driver"
 )
 
-type Logger = driver.Logger
+// Shortcuts for logger types.
+type (
+	Logger         = driver.Logger
+	Attr           = core.Attr
+	Driver         = core.Driver
+	Level          = core.Level
+	Format         = core.Format
+	TimeLayout     = core.TimeLayout
+	FileRotation   = core.FileRotation
+	ExtractCtxFunc = core.ExtractCtxFunc
+)
 
-// A is a shortcut for creating attributes.
-var A = core.NewAttr
+// Shortcuts for attribute creation.
+var (
+	Str = core.String
+	Int = core.Int
+	Any = core.Any
+)
 
-// Public constants for logger configuration.
+// Shortcuts for logger configuration.
 const (
 	DriverZap    = core.Driver("zap")
 	DriverLogrus = core.Driver("logrus")
@@ -78,27 +90,4 @@ func defaultConfig() core.Config {
 			Compress:   compress,
 		},
 	}
-}
-
-func validateConfig(cfg *core.Config) error {
-	if cfg.Driver == "" {
-		return core.ErrMissingDriver
-	}
-
-	switch cfg.Level {
-	case core.LevelDebug, core.LevelInfo, core.LevelWarn, core.LevelError, core.LevelPanic, core.LevelFatal:
-		break
-	default:
-		return core.ErrInvalidLevel
-	}
-
-	if cfg.Format != core.FormatJSON && cfg.Format != core.FormatText {
-		return core.ErrInvalidFormat
-	}
-
-	if len(cfg.OutputPaths) == 0 || slices.Contains(cfg.OutputPaths, "") {
-		return core.ErrInvalidPaths
-	}
-
-	return nil
 }

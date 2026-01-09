@@ -5,11 +5,27 @@ type Attr struct {
 	Value any
 }
 
-func NewAttr(key string, value any) Attr {
+func newAttr(k string, v any) Attr {
 	return Attr{
-		Key:   key,
-		Value: value,
+		Key:   k,
+		Value: v,
 	}
+}
+
+func String(k, v string) Attr {
+	return newAttr(k, v)
+}
+
+func Int(k string, v int) Attr {
+	return newAttr(k, v)
+}
+
+func Bool(k string, v bool) Attr {
+	return newAttr(k, v)
+}
+
+func Any(k string, v any) Attr {
+	return newAttr(k, v)
 }
 
 func SanitizeKey(k string) string {

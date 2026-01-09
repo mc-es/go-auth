@@ -1,6 +1,7 @@
 package logrus
 
 import (
+	"context"
 	"io"
 	"maps"
 	"path"
@@ -15,10 +16,11 @@ import (
 )
 
 type adapter struct {
-	loggers []*logrus.Logger
-	fields  logrus.Fields
-	dests   *output.Destination
-	caller  bool
+	loggers   []*logrus.Logger
+	fields    logrus.Fields
+	dests     *output.Destination
+	caller    bool
+	extractor core.ExtractCtxFunc
 }
 
 //nolint:gochecknoinits
@@ -49,10 +51,11 @@ func newLogrus(config *core.Config) (driver.Logger, error) {
 	}
 
 	return &adapter{
-		loggers: loggers,
-		fields:  make(logrus.Fields),
-		dests:   dests,
-		caller:  config.Development,
+		loggers:   loggers,
+		fields:    make(logrus.Fields),
+		dests:     dests,
+		caller:    config.Development,
+		extractor: config.Extractor,
 	}, nil
 }
 
@@ -80,13 +83,28 @@ func (a *adapter) Fatal(msg string, attrs ...core.Attr) {
 	a.dispatch(logrus.FatalLevel, msg, attrs...)
 }
 
-func (a *adapter) With(attrs ...core.Attr) driver.Logger {
-	return &adapter{
-		loggers: a.loggers,
-		fields:  mergeFields(a.fields, attrs),
-		dests:   nil,
-		caller:  a.caller,
-	}
+func (a *adapter) DebugCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.dispatch(logrus.DebugLevel, msg, a.extract(ctx, attrs)...)
+}
+
+func (a *adapter) InfoCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.dispatch(logrus.InfoLevel, msg, a.extract(ctx, attrs)...)
+}
+
+func (a *adapter) WarnCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.dispatch(logrus.WarnLevel, msg, a.extract(ctx, attrs)...)
+}
+
+func (a *adapter) ErrorCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.dispatch(logrus.ErrorLevel, msg, a.extract(ctx, attrs)...)
+}
+
+func (a *adapter) PanicCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.dispatch(logrus.PanicLevel, msg, a.extract(ctx, attrs)...)
+}
+
+func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.dispatch(logrus.FatalLevel, msg, a.extract(ctx, attrs)...)
 }
 
 func (a *adapter) Sync() error {
@@ -95,6 +113,17 @@ func (a *adapter) Sync() error {
 	}
 
 	return a.dests.Close()
+}
+
+func (a *adapter) extract(ctx context.Context, attrs []core.Attr) []core.Attr {
+	if a.extractor != nil && ctx != nil {
+		extracted := a.extractor(ctx)
+		if len(extracted) > 0 {
+			return append(extracted, attrs...)
+		}
+	}
+
+	return attrs
 }
 
 func makeBaseLogger(cfg *core.Config) *logrus.Logger {
@@ -119,7 +148,7 @@ func toLogrusLevel(l core.Level) logrus.Level {
 	case core.LevelFatal:
 		return logrus.FatalLevel
 	default:
-		return logrus.DebugLevel
+		return logrus.InfoLevel
 	}
 }
 
@@ -140,28 +169,28 @@ func setupFormatter(log *logrus.Logger, cfg *core.Config, allowColor bool) {
 }
 
 func (a *adapter) dispatch(level logrus.Level, msg string, attrs ...core.Attr) {
-	merged := mergeFields(a.fields, attrs)
+	fields := toLogrusFields(a.fields, attrs)
 
 	if a.caller {
 		if _, file, line, ok := runtime.Caller(2); ok {
 			shortFile := path.Base(file) + ":" + strconv.Itoa(line)
-			merged["caller"] = shortFile
+			fields["caller"] = shortFile
 		}
 	}
 
 	for _, l := range a.loggers {
-		entry := l.WithFields(merged)
+		entry := l.WithFields(fields)
 		entry.Log(level, msg)
 	}
 }
 
-func mergeFields(base logrus.Fields, attrs []core.Attr) logrus.Fields {
-	merged := make(logrus.Fields, len(base)+len(attrs))
-	maps.Copy(merged, base)
+func toLogrusFields(base logrus.Fields, attrs []core.Attr) logrus.Fields {
+	fields := make(logrus.Fields, len(base)+len(attrs))
+	maps.Copy(fields, base)
 
 	for _, a := range attrs {
-		merged[core.SanitizeKey(a.Key)] = a.Value
+		fields[core.SanitizeKey(a.Key)] = a.Value
 	}
 
-	return merged
+	return fields
 }

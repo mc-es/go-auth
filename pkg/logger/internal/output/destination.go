@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -99,10 +98,6 @@ func partitionPaths(paths []string) (console, files []string, err error) {
 	seen := make(map[string]struct{})
 
 	for _, path := range paths {
-		if strings.TrimSpace(path) == "" {
-			return nil, nil, fmt.Errorf("log output path cannot be empty")
-		}
-
 		if path == "stdout" || path == "stderr" {
 			if _, exists := seen[path]; !exists {
 				seen[path] = struct{}{}

@@ -1,6 +1,7 @@
 package zap
 
 import (
+	"context"
 	"errors"
 
 	"go.uber.org/zap"
@@ -12,8 +13,9 @@ import (
 )
 
 type adapter struct {
-	logger *zap.SugaredLogger
-	dests  *output.Destination
+	logger    *zap.SugaredLogger
+	dests     *output.Destination
+	extractor core.ExtractCtxFunc
 }
 
 //nolint:gochecknoinits
@@ -49,40 +51,58 @@ func newZap(config *core.Config) (driver.Logger, error) {
 	z := zap.New(teeCore, buildOptions(config)...)
 
 	return &adapter{
-		logger: z.Sugar(),
-		dests:  dests,
+		logger:    z.Sugar(),
+		dests:     dests,
+		extractor: config.Extractor,
 	}, nil
 }
 
 func (a *adapter) Debug(msg string, attrs ...core.Attr) {
-	a.logger.Debugw(msg, toZapArgs(attrs)...)
+	a.logger.Debugw(msg, toZapFields(attrs)...)
 }
 
 func (a *adapter) Info(msg string, attrs ...core.Attr) {
-	a.logger.Infow(msg, toZapArgs(attrs)...)
+	a.logger.Infow(msg, toZapFields(attrs)...)
 }
 
 func (a *adapter) Warn(msg string, attrs ...core.Attr) {
-	a.logger.Warnw(msg, toZapArgs(attrs)...)
+	a.logger.Warnw(msg, toZapFields(attrs)...)
 }
 
 func (a *adapter) Error(msg string, attrs ...core.Attr) {
-	a.logger.Errorw(msg, toZapArgs(attrs)...)
+	a.logger.Errorw(msg, toZapFields(attrs)...)
 }
 
 func (a *adapter) Panic(msg string, attrs ...core.Attr) {
-	a.logger.Panicw(msg, toZapArgs(attrs)...)
+	a.logger.Panicw(msg, toZapFields(attrs)...)
 }
 
 func (a *adapter) Fatal(msg string, attrs ...core.Attr) {
-	a.logger.Fatalw(msg, toZapArgs(attrs)...)
+	a.logger.Fatalw(msg, toZapFields(attrs)...)
 }
 
-func (a *adapter) With(attrs ...core.Attr) driver.Logger {
-	return &adapter{
-		logger: a.logger.With(toZapArgs(attrs)...),
-		dests:  nil,
-	}
+func (a *adapter) DebugCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.logger.Debugw(msg, toZapFields(a.extract(ctx, attrs))...)
+}
+
+func (a *adapter) InfoCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.logger.Infow(msg, toZapFields(a.extract(ctx, attrs))...)
+}
+
+func (a *adapter) WarnCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.logger.Warnw(msg, toZapFields(a.extract(ctx, attrs))...)
+}
+
+func (a *adapter) ErrorCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.logger.Errorw(msg, toZapFields(a.extract(ctx, attrs))...)
+}
+
+func (a *adapter) PanicCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.logger.Panicw(msg, toZapFields(a.extract(ctx, attrs))...)
+}
+
+func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...core.Attr) {
+	a.logger.Fatalw(msg, toZapFields(a.extract(ctx, attrs))...)
 }
 
 func (a *adapter) Sync() error {
@@ -98,26 +118,15 @@ func (a *adapter) Sync() error {
 	return err
 }
 
-func toZapLevel(l core.Level) zapcore.Level {
-	switch l {
-	case core.LevelDebug, core.LevelInfo, core.LevelWarn, core.LevelError:
-		return zapcore.Level(l)
-	case core.LevelPanic:
-		return zapcore.PanicLevel
-	case core.LevelFatal:
-		return zapcore.FatalLevel
-	default:
-		return zapcore.DebugLevel
-	}
-}
-
-func toZapArgs(attrs []core.Attr) []any {
-	args := make([]any, 0, len(attrs)*2)
-	for _, a := range attrs {
-		args = append(args, core.SanitizeKey(a.Key), a.Value)
+func (a *adapter) extract(ctx context.Context, attrs []core.Attr) []core.Attr {
+	if a.extractor != nil && ctx != nil {
+		extracted := a.extractor(ctx)
+		if len(extracted) > 0 {
+			return append(extracted, attrs...)
+		}
 	}
 
-	return args
+	return attrs
 }
 
 func buildEncoder(cfg *core.Config, isConsole bool) zapcore.Encoder {
@@ -147,6 +156,19 @@ func buildEncoder(cfg *core.Config, isConsole bool) zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(enCfg)
 }
 
+func toZapLevel(l core.Level) zapcore.Level {
+	switch l {
+	case core.LevelDebug, core.LevelInfo, core.LevelWarn, core.LevelError:
+		return zapcore.Level(l)
+	case core.LevelPanic:
+		return zapcore.PanicLevel
+	case core.LevelFatal:
+		return zapcore.FatalLevel
+	default:
+		return zapcore.InfoLevel
+	}
+}
+
 func buildOptions(cfg *core.Config) []zap.Option {
 	opts := []zap.Option{
 		zap.AddStacktrace(zapcore.ErrorLevel),
@@ -157,4 +179,13 @@ func buildOptions(cfg *core.Config) []zap.Option {
 	}
 
 	return opts
+}
+
+func toZapFields(attrs []core.Attr) []any {
+	fields := make([]any, 0, len(attrs)*2)
+	for _, a := range attrs {
+		fields = append(fields, core.SanitizeKey(a.Key), a.Value)
+	}
+
+	return fields
 }
