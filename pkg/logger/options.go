@@ -43,3 +43,15 @@ func WithDevelopment() Option {
 		cfg.OutputPaths = []string{"stdout"}
 	}
 }
+
+func WithFileRotation(maxAge, maxSize, maxBackups int, localTime, compress bool) Option {
+	return func(cfg *core.Config) {
+		cfg.FileRotation = core.FileRotation{
+			MaxAge:     maxAge,
+			MaxSize:    maxSize,
+			MaxBackups: maxBackups,
+			LocalTime:  localTime,
+			Compress:   compress,
+		}
+	}
+}

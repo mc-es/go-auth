@@ -55,6 +55,14 @@ func New(opts ...Option) (Logger, error) {
 }
 
 func defaultConfig() core.Config {
+	const (
+		maxAge     = 7
+		maxSize    = 100
+		maxBackups = 3
+		localTime  = true
+		compress   = true
+	)
+
 	return core.Config{
 		Driver:      DriverZap,
 		Level:       LevelDebug,
@@ -62,6 +70,13 @@ func defaultConfig() core.Config {
 		TimeLayout:  TimeLayoutDateTime,
 		OutputPaths: []string{"stdout"},
 		Development: false,
+		FileRotation: core.FileRotation{
+			MaxAge:     maxAge,
+			MaxSize:    maxSize,
+			MaxBackups: maxBackups,
+			LocalTime:  localTime,
+			Compress:   compress,
+		},
 	}
 }
 

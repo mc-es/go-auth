@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/natefinch/lumberjack.v2"
+
 	"go-auth/pkg/logger/internal/core"
 )
 
@@ -27,7 +29,7 @@ func New(cfg *core.Config) (*Destination, error) {
 	}
 
 	if len(consolePaths) > 0 {
-		writer, err := dest.openWriters(consolePaths)
+		writer, err := dest.openWriters(consolePaths, core.FileRotation{})
 		if err != nil {
 			_ = dest.Close()
 
@@ -38,7 +40,7 @@ func New(cfg *core.Config) (*Destination, error) {
 	}
 
 	if len(filePaths) > 0 {
-		writer, err := dest.openWriters(filePaths)
+		writer, err := dest.openWriters(filePaths, cfg.FileRotation)
 		if err != nil {
 			_ = dest.Close()
 
@@ -62,7 +64,7 @@ func (d *Destination) Close() error {
 	return firstErr
 }
 
-func (d *Destination) openWriters(paths []string) (io.Writer, error) {
+func (d *Destination) openWriters(paths []string, rot core.FileRotation) (io.Writer, error) {
 	var writers []io.Writer
 
 	for _, path := range paths {
@@ -76,13 +78,17 @@ func (d *Destination) openWriters(paths []string) (io.Writer, error) {
 				return nil, fmt.Errorf("failed to create log directory: %w", err)
 			}
 
-			file, err := os.OpenFile(filepath.Clean(path), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open log file %q: %w", path, err)
+			jack := &lumberjack.Logger{
+				Filename:   path,
+				MaxAge:     rot.MaxAge,
+				MaxSize:    rot.MaxSize,
+				MaxBackups: rot.MaxBackups,
+				LocalTime:  rot.LocalTime,
+				Compress:   rot.Compress,
 			}
 
-			writers = append(writers, file)
-			d.closers = append(d.closers, file)
+			writers = append(writers, jack)
+			d.closers = append(d.closers, jack)
 		}
 	}
 

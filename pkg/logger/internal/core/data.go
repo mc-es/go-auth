@@ -33,11 +33,20 @@ const (
 	TimeLayoutRFC1123  TimeLayout = time.RFC1123
 )
 
+type FileRotation struct {
+	MaxAge     int  // days
+	MaxSize    int  // MB
+	MaxBackups int  // count
+	LocalTime  bool // local time in the backup file name
+	Compress   bool
+}
+
 type Config struct {
-	Driver      Driver
-	Level       Level
-	Format      Format
-	TimeLayout  TimeLayout
-	OutputPaths []string
-	Development bool
+	Driver       Driver
+	Level        Level
+	Format       Format
+	TimeLayout   TimeLayout
+	OutputPaths  []string
+	Development  bool
+	FileRotation FileRotation
 }
