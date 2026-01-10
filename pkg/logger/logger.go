@@ -2,12 +2,12 @@ package logger
 
 import (
 	"go-auth/pkg/logger/internal/core"
-	"go-auth/pkg/logger/internal/driver"
+	"go-auth/pkg/logger/internal/provider"
 )
 
 // Shortcuts for logger types.
 type (
-	Logger         = driver.Logger
+	Logger         = provider.Logger
 	Driver         = core.Driver
 	Level          = core.Level
 	Format         = core.Format
@@ -50,7 +50,7 @@ func New(opts ...Option) (Logger, error) {
 		return nil, err
 	}
 
-	factory, err := driver.Get(cfg.Driver)
+	factory, err := provider.Get(cfg.Driver)
 	if err != nil {
 		return nil, err
 	}

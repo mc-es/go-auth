@@ -8,8 +8,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"go-auth/pkg/logger/internal/core"
-	"go-auth/pkg/logger/internal/driver"
 	"go-auth/pkg/logger/internal/output"
+	"go-auth/pkg/logger/internal/provider"
 )
 
 type adapter struct {
@@ -20,10 +20,10 @@ type adapter struct {
 
 //nolint:gochecknoinits
 func init() {
-	driver.Register(core.Driver("zap"), newZap)
+	provider.Register(core.Driver("zap"), newZap)
 }
 
-func newZap(config *core.Config) (driver.Logger, error) {
+func newZap(config *core.Config) (provider.Logger, error) {
 	dests, err := output.New(config)
 	if err != nil {
 		return nil, err

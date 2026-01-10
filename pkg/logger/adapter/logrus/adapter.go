@@ -10,8 +10,8 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"go-auth/pkg/logger/internal/core"
-	"go-auth/pkg/logger/internal/driver"
 	"go-auth/pkg/logger/internal/output"
+	"go-auth/pkg/logger/internal/provider"
 )
 
 type adapter struct {
@@ -23,10 +23,10 @@ type adapter struct {
 
 //nolint:gochecknoinits
 func init() {
-	driver.Register(core.Driver("logrus"), newLogrus)
+	provider.Register(core.Driver("logrus"), newLogrus)
 }
 
-func newLogrus(config *core.Config) (driver.Logger, error) {
+func newLogrus(config *core.Config) (provider.Logger, error) {
 	dests, err := output.New(config)
 	if err != nil {
 		return nil, err
