@@ -33,15 +33,15 @@ func main() {
 	log.InfoCtx(ctx, "Hello, World!")
 }
 
-func extractor(ctx context.Context) []logger.Attr {
-	var attrs []logger.Attr
+func extractor(ctx context.Context) []any {
+	var attrs []any
 
 	if traceID, ok := ctx.Value(traceIDKey).(string); ok {
-		attrs = append(attrs, logger.Str(string(traceIDKey), traceID))
+		attrs = append(attrs, string(traceIDKey), traceID)
 	}
 
 	if userID, ok := ctx.Value(userIDKey).(int); ok {
-		attrs = append(attrs, logger.Int(string(userIDKey), userID))
+		attrs = append(attrs, string(userIDKey), userID)
 	}
 
 	return attrs

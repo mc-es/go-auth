@@ -8,20 +8,12 @@ import (
 // Shortcuts for logger types.
 type (
 	Logger         = driver.Logger
-	Attr           = core.Attr
 	Driver         = core.Driver
 	Level          = core.Level
 	Format         = core.Format
 	TimeLayout     = core.TimeLayout
 	FileRotation   = core.FileRotation
 	ExtractCtxFunc = core.ExtractCtxFunc
-)
-
-// Shortcuts for attribute creation.
-var (
-	Str = core.String
-	Int = core.Int
-	Any = core.Any
 )
 
 // Shortcuts for logger configuration.

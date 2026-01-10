@@ -10,7 +10,7 @@ type (
 	Level          int8
 	Format         string
 	TimeLayout     string
-	ExtractCtxFunc func(ctx context.Context) []Attr
+	ExtractCtxFunc func(ctx context.Context) []any
 )
 
 type FileRotation struct {
