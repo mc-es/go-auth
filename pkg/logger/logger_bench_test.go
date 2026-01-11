@@ -9,14 +9,14 @@ import (
 )
 
 func BenchmarkZapLogger(b *testing.B) {
-	benchmarkLogger(b, "zap", logger.DriverZap)
+	benchmarkLogger(b, logger.DriverZap)
 }
 
 func BenchmarkLogrusLogger(b *testing.B) {
-	benchmarkLogger(b, "logrus", logger.DriverLogrus)
+	benchmarkLogger(b, logger.DriverLogrus)
 }
 
-func benchmarkLogger(b *testing.B, name string, driver logger.Driver) {
+func benchmarkLogger(b *testing.B, driver logger.Driver) {
 	// Setup Logger
 	log, _ := logger.New(
 		logger.WithDriver(driver),
@@ -26,7 +26,7 @@ func benchmarkLogger(b *testing.B, name string, driver logger.Driver) {
 		logger.WithFileRotation(1, 1000000, 1, false, false),
 	)
 
-	b.Run(name+" clean strings", func(b *testing.B) {
+	b.Run("clean strings", func(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
@@ -34,7 +34,7 @@ func benchmarkLogger(b *testing.B, name string, driver logger.Driver) {
 		}
 	})
 
-	b.Run(name+" dirty optimization miss", func(b *testing.B) {
+	b.Run("dirty optimization miss", func(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
@@ -43,7 +43,7 @@ func benchmarkLogger(b *testing.B, name string, driver logger.Driver) {
 		}
 	})
 
-	b.Run(name+" non string key", func(b *testing.B) {
+	b.Run("non-string key", func(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {

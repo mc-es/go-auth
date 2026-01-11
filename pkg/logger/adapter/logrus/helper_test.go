@@ -15,7 +15,6 @@ func TestToLogrusFields(t *testing.T) {
 	}{
 		{
 			name:     "nil input",
-			input:    nil,
 			expected: logrus.Fields{},
 		},
 		{
@@ -39,12 +38,12 @@ func TestToLogrusFields(t *testing.T) {
 			expected: logrus.Fields{"key1": "val1", "123": "val2"},
 		},
 		{
-			name:     "reserved key",
+			name:     "reserved key caller",
 			input:    []any{"caller", "main.go:123", "key1", "val1"},
 			expected: logrus.Fields{"field.caller": "main.go:123", "key1": "val1"},
 		},
 		{
-			name:     "reserved key",
+			name:     "reserved key msg",
 			input:    []any{"msg", "hello"},
 			expected: logrus.Fields{"field.msg": "hello"},
 		},
@@ -52,8 +51,7 @@ func TestToLogrusFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := toLogrusFields(tt.input)
-			assert.Equal(t, tt.expected, result)
+			assert.Equal(t, tt.expected, toLogrusFields(tt.input))
 		})
 	}
 }
@@ -63,15 +61,15 @@ func TestNormalizeKey(t *testing.T) {
 		input    any
 		expected string
 	}{
-		{"simple", "simple"},
-		{123, "123"},
-		{true, "true"},
-		{"level", "field.level"},
-		{"msg", "field.msg"},
-		{"time", "field.time"},
-		{"caller", "field.caller"},
-		{"logrus_error", "field.logrus_error"},
-		{"other", "other"},
+		{input: "simple", expected: "simple"},
+		{input: 123, expected: "123"},
+		{input: true, expected: "true"},
+		{input: "level", expected: "field.level"},
+		{input: "msg", expected: "field.msg"},
+		{input: "time", expected: "field.time"},
+		{input: "caller", expected: "field.caller"},
+		{input: "logrus_error", expected: "field.logrus_error"},
+		{input: "other", expected: "other"},
 	}
 
 	for _, tt := range tests {

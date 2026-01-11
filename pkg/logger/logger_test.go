@@ -41,59 +41,43 @@ func TestNewWithValidationErrors(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			name: "missing driver",
-			opts: []logger.Option{
-				logger.WithDriver(logger.Driver("")), // Empty driver
-			},
+			name:        "missing driver",
+			opts:        []logger.Option{logger.WithDriver(logger.Driver(""))},
 			expectedErr: core.ErrMissingDriver,
 		},
 		{
-			name: "unknown driver",
-			opts: []logger.Option{
-				logger.WithDriver(logger.Driver("unknown")),
-			},
+			name:        "unknown driver",
+			opts:        []logger.Option{logger.WithDriver(logger.Driver("unknown"))},
 			expectedErr: core.ErrUnknownDriver,
 		},
 		{
-			name: "invalid level",
-			opts: []logger.Option{
-				logger.WithLevel(logger.Level(99)), // Invalid level
-			},
+			name:        "invalid level",
+			opts:        []logger.Option{logger.WithLevel(logger.Level(99))},
 			expectedErr: core.ErrInvalidLevel,
 		},
 		{
-			name: "invalid format",
-			opts: []logger.Option{
-				logger.WithFormat(logger.Format("xml")), // Invalid format
-			},
+			name:        "invalid format",
+			opts:        []logger.Option{logger.WithFormat(logger.Format("xml"))},
 			expectedErr: core.ErrInvalidFormat,
 		},
 		{
-			name: "invalid time layout",
-			opts: []logger.Option{
-				logger.WithTimeLayout(logger.TimeLayout("")), // Empty time layout
-			},
+			name:        "invalid time layout",
+			opts:        []logger.Option{logger.WithTimeLayout(logger.TimeLayout(""))},
 			expectedErr: core.ErrInvalidTimeLayout,
 		},
 		{
-			name: "empty output paths",
-			opts: []logger.Option{
-				logger.WithOutputPaths(), // Empty paths
-			},
+			name:        "empty output paths",
+			opts:        []logger.Option{logger.WithOutputPaths()},
 			expectedErr: core.ErrInvalidPaths,
 		},
 		{
-			name: "invalid output paths",
-			opts: []logger.Option{
-				logger.WithOutputPaths(""), // Empty paths
-			},
+			name:        "invalid output paths",
+			opts:        []logger.Option{logger.WithOutputPaths("")},
 			expectedErr: core.ErrInvalidPaths,
 		},
 		{
-			name: "invalid file rotation",
-			opts: []logger.Option{
-				logger.WithFileRotation(0, -1, -100, false, false), // Invalid file rotation
-			},
+			name:        "invalid file rotation",
+			opts:        []logger.Option{logger.WithFileRotation(0, -1, -100, false, false)},
 			expectedErr: core.ErrInvalidFileRotation,
 		},
 	}

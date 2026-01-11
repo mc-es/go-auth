@@ -14,22 +14,17 @@ func TestToZapFields(t *testing.T) {
 		dirty    bool
 	}{
 		{
-			name:     "nil input",
-			input:    nil,
-			expected: nil,
-			dirty:    false,
+			name: "nil input",
 		},
 		{
 			name:     "empty input",
 			input:    []any{},
 			expected: []any{},
-			dirty:    false,
 		},
 		{
 			name:     "happy path",
 			input:    []any{"key1", "val1", "key2", 123},
 			expected: []any{"key1", "val1", "key2", 123},
-			dirty:    false,
 		},
 		{
 			name:     "odd number of arguments",
@@ -44,13 +39,13 @@ func TestToZapFields(t *testing.T) {
 			dirty:    true,
 		},
 		{
-			name:     "reserved key",
+			name:     "reserved key caller",
 			input:    []any{"caller", "main.go:123", "key1", "val1"},
 			expected: []any{"field.caller", "main.go:123", "key1", "val1"},
 			dirty:    true,
 		},
 		{
-			name:     "reserved key",
+			name:     "reserved key msg",
 			input:    []any{"msg", "hello"},
 			expected: []any{"field.msg", "hello"},
 			dirty:    true,
@@ -81,15 +76,15 @@ func TestNormalizeKey(t *testing.T) {
 		input    any
 		expected string
 	}{
-		{"simple", "simple"},
-		{123, "123"},
-		{true, "true"},
-		{"level", "field.level"},
-		{"msg", "field.msg"},
-		{"time", "field.time"},
-		{"caller", "field.caller"},
-		{"stacktrace", "field.stacktrace"},
-		{"other", "other"},
+		{input: "simple", expected: "simple"},
+		{input: 123, expected: "123"},
+		{input: true, expected: "true"},
+		{input: "level", expected: "field.level"},
+		{input: "msg", expected: "field.msg"},
+		{input: "time", expected: "field.time"},
+		{input: "caller", expected: "field.caller"},
+		{input: "stacktrace", expected: "field.stacktrace"},
+		{input: "other", expected: "other"},
 	}
 
 	for _, tt := range tests {
