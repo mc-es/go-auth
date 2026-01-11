@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .PHONY: \
 	help \
 	build run dev \
-	test test-race test-coverage \
+	test test-watch test-bench test-coverage \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
 	install-lefthook \
@@ -47,16 +47,27 @@ APP_NAME     := app
 APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
 
 # Tool Versions
-LINT_VERSION     := v2.7.2
-VULN_VERSION     := v1.1.4
-AIR_VERSION      := v1.63.4
-LEFTHOOK_VERSION := v2.0.13
+LINT_VERSION      := v2.7.2
+VULN_VERSION      := v1.1.4
+AIR_VERSION       := v1.63.4
+LEFTHOOK_VERSION  := v2.0.13
+GOTESTSUM_VERSION := v1.13.0
+BENCHSTAT_VERSION := latest
 
 # Tool Binaries
-LINT     := $(TOOLS_DIR)/golangci-lint
-VULN     := $(TOOLS_DIR)/govulncheck
-AIR      := $(TOOLS_DIR)/air
-LEFTHOOK := $(TOOLS_DIR)/lefthook
+LINT      := $(TOOLS_DIR)/golangci-lint
+VULN      := $(TOOLS_DIR)/govulncheck
+AIR       := $(TOOLS_DIR)/air
+LEFTHOOK  := $(TOOLS_DIR)/lefthook
+GOTESTSUM := $(TOOLS_DIR)/gotestsum
+BENCHSTAT := $(TOOLS_DIR)/benchstat
+
+# Test Variables
+TEST_PKG   ?= ./...
+TEST_RUN   ?= .
+TEST_ARGS  ?=
+TEST_BENCH ?= .
+TEST_COUNT ?= 10
 
 # Build Metadata
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -68,7 +79,7 @@ LDFLAGS    := -s -w -X main.version=$(VERSION) -X main.commit=$(GIT_COMMIT) -X m
 .DEFAULT_GOAL := help
 
 # Directories
-$(BIN_DIR) $(TOOLS_DIR) $(COVERAGE_DIR):
+$(BIN_DIR) $(TOOLS_DIR) $(COVERAGE_DIR) $(TMP_DIR):
 	@mkdir -p $@
 
 # Tools Installation
@@ -91,6 +102,16 @@ $(LEFTHOOK): | $(TOOLS_DIR)
 	@$(call print_header,"Installing lefthook@$(LEFTHOOK_VERSION)...")
 	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/evilmartians/lefthook/v2@$(LEFTHOOK_VERSION)
 	@$(call print_success,"lefthook installed successfully!")
+
+$(GOTESTSUM): | $(TOOLS_DIR)
+	@$(call print_header,"Installing gotestsum@$(GOTESTSUM_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
+	@$(call print_success,"gotestsum installed successfully!")
+
+$(BENCHSTAT): | $(TOOLS_DIR)
+	@$(call print_header,"Installing benchstat@$(BENCHSTAT_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/perf/cmd/benchstat@$(BENCHSTAT_VERSION)
+	@$(call print_success,"benchstat installed successfully!")
 
 
 # --- Help ---
@@ -123,19 +144,42 @@ dev: $(AIR) ## Run with live reload (Air)
 
 
 # --- Testing & Coverage ---
-test: ## Run unit tests
-	@$(call print_header,"Running tests...")
-	@$(GO) test -v ./...
-	@$(call print_success,"All tests passed!")
+test: $(GOTESTSUM) ## Run tests (Use TEST_PKG=./path, TEST_RUN="Func/CaseName", TEST_ARGS="flags...")
+	@$(call print_header,"Running tests on $(TEST_PKG)")
+	@"$(GOTESTSUM)" --format-hide-empty-pkg --format testdox --format-icons hivis \
+		-- \
+		-run "$(TEST_RUN)" \
+		$(TEST_PKG) $(TEST_ARGS)
+	@$(call print_success,"Tests passed!")
 
-test-race: ## Run tests with race detector
-	@$(call print_header,"Running race tests...")
-	@$(GO) test -v -race ./...
-	@$(call print_success,"Race tests passed!")
+test-watch: $(GOTESTSUM) ## Run tests with watch (Same opts as 'test')
+	@$(call print_header,"Running tests with watch on $(TEST_PKG)")
+	@"$(GOTESTSUM)" --watch --format-hide-empty-pkg --format testdox --format-icons hivis \
+		-- \
+		-run "$(TEST_RUN)" \
+		$(TEST_PKG) $(TEST_ARGS)
 
-test-coverage: | $(COVERAGE_DIR) ## Generate coverage report
-	@$(call print_header,"Generating coverage...")
-	@$(GO) test -v -race -coverprofile=$(COVERAGE_DIR)/coverage.out ./...
+test-bench: $(BENCHSTAT) | $(TMP_DIR) ## Run benchmark tests (Use TEST_PKG=./path, TEST_BENCH="Func/CaseName", TEST_COUNT=1)
+	@$(call print_header,"Running benchmark tests on $(TEST_PKG)")
+	@$(GO) test \
+		-run=^$$ \
+		-benchmem \
+		-bench="$(TEST_BENCH)" \
+		-count=$(TEST_COUNT) \
+		$(TEST_PKG) \
+		$(TEST_ARGS) \
+		| tee $(TMP_DIR)/bench.txt
+	@echo ""
+	@$(call print_header,"Calculating statistics...")
+	@"$(BENCHSTAT)" $(TMP_DIR)/bench.txt
+	@$(call print_success,"Statistics calculated: $(TMP_DIR)/bench.txt")
+
+test-coverage: | $(COVERAGE_DIR) ## Generate coverage report (Same opts as 'test')
+	@$(call print_header,"Generating coverage for $(TEST_PKG)")
+	@$(GO) test \
+		-coverprofile=$(COVERAGE_DIR)/coverage.out \
+		-run "$(TEST_RUN)" \
+		$(TEST_PKG) $(TEST_ARGS)
 	@$(GO) tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
 	@$(call print_success,"Report generated: $(COVERAGE_DIR)/coverage.html")
 
