@@ -26,29 +26,11 @@ func benchmarkLogger(b *testing.B, driver logger.Driver) {
 		logger.WithFileRotation(1, 1000000, 1, false, false),
 	)
 
-	b.Run("clean strings", func(b *testing.B) {
+	b.Run("happy path", func(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
 			log.Info("benchmark", "key1", "value1", "key2", "value2")
-		}
-	})
-
-	b.Run("dirty optimization miss", func(b *testing.B) {
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			// Odd number of args triggers dirty flag -> allocation happens
-			log.Info("benchmark", "key1", "value1", "key2")
-		}
-	})
-
-	b.Run("non-string key", func(b *testing.B) {
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			// Non-string key triggers dirty flag -> allocation happens
-			log.Info("benchmark", "key1", "value1", 123, "val")
 		}
 	})
 }

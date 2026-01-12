@@ -140,3 +140,65 @@ func TestNewWithContextExtraction(t *testing.T) {
 	assert.Contains(t, logStr, `"user_id":42`) // Extracted from context
 	assert.Contains(t, logStr, `"foo":"bar"`)
 }
+
+func TestNewWithLogging(t *testing.T) {
+	drivers := []struct {
+		name   string
+		driver logger.Driver
+	}{
+		{"zap", logger.DriverZap},
+		{"logrus", logger.DriverLogrus},
+	}
+
+	for _, drv := range drivers {
+		t.Run(drv.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			logFile := filepath.Join(tempDir, "test.log")
+
+			log, err := logger.New(
+				logger.WithDriver(drv.driver),
+				logger.WithOutputPaths(logFile),
+				logger.WithLevel(logger.LevelDebug),
+				logger.WithFormat(logger.FormatJSON),
+			)
+			require.NoError(t, err)
+
+			// Test all log methods without context
+			log.Debug("debug message", "key1", "value1")
+			log.Info("info message", "key2", "value2")
+			log.Warn("warn message", "key3", "value3")
+			log.Error("error message", "key4", "value4")
+
+			// Test all log methods with context
+			ctx := context.Background()
+			log.DebugCtx(ctx, "debug ctx message", "key5", "value5")
+			log.InfoCtx(ctx, "info ctx message", "key6", "value6")
+			log.WarnCtx(ctx, "warn ctx message", "key7", "value7")
+			log.ErrorCtx(ctx, "error ctx message", "key8", "value8")
+
+			// Sync to ensure flush
+			err = log.Sync()
+			require.NoError(t, err)
+
+			// Read file content
+			content, err := os.ReadFile(logFile)
+			require.NoError(t, err)
+
+			logStr := string(content)
+
+			// Verify all messages are logged
+			assert.Contains(t, logStr, "debug message")
+			assert.Contains(t, logStr, "info message")
+			assert.Contains(t, logStr, "warn message")
+			assert.Contains(t, logStr, "error message")
+			assert.Contains(t, logStr, "debug ctx message")
+			assert.Contains(t, logStr, "info ctx message")
+			assert.Contains(t, logStr, "warn ctx message")
+			assert.Contains(t, logStr, "error ctx message")
+
+			// Verify attributes are logged
+			assert.Contains(t, logStr, `"key1":"value1"`)
+			assert.Contains(t, logStr, `"key2":"value2"`)
+		})
+	}
+}

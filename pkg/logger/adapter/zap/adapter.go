@@ -58,51 +58,51 @@ func newZap(config *core.Config) (provider.Logger, error) {
 }
 
 func (a *adapter) Debug(msg string, attrs ...any) {
-	a.logger.Debugw(msg, toZapFields(attrs)...)
+	a.log(context.TODO(), zapcore.DebugLevel, msg, attrs)
 }
 
 func (a *adapter) Info(msg string, attrs ...any) {
-	a.logger.Infow(msg, toZapFields(attrs)...)
+	a.log(context.TODO(), zapcore.InfoLevel, msg, attrs)
 }
 
 func (a *adapter) Warn(msg string, attrs ...any) {
-	a.logger.Warnw(msg, toZapFields(attrs)...)
+	a.log(context.TODO(), zapcore.WarnLevel, msg, attrs)
 }
 
 func (a *adapter) Error(msg string, attrs ...any) {
-	a.logger.Errorw(msg, toZapFields(attrs)...)
+	a.log(context.TODO(), zapcore.ErrorLevel, msg, attrs)
 }
 
 func (a *adapter) Panic(msg string, attrs ...any) {
-	a.logger.Panicw(msg, toZapFields(attrs)...)
+	a.log(context.TODO(), zapcore.PanicLevel, msg, attrs)
 }
 
 func (a *adapter) Fatal(msg string, attrs ...any) {
-	a.logger.Fatalw(msg, toZapFields(attrs)...)
+	a.log(context.TODO(), zapcore.FatalLevel, msg, attrs)
 }
 
 func (a *adapter) DebugCtx(ctx context.Context, msg string, attrs ...any) {
-	a.logger.Debugw(msg, toZapFields(a.extract(ctx, attrs))...)
+	a.log(ctx, zapcore.DebugLevel, msg, attrs)
 }
 
 func (a *adapter) InfoCtx(ctx context.Context, msg string, attrs ...any) {
-	a.logger.Infow(msg, toZapFields(a.extract(ctx, attrs))...)
+	a.log(ctx, zapcore.InfoLevel, msg, attrs)
 }
 
 func (a *adapter) WarnCtx(ctx context.Context, msg string, attrs ...any) {
-	a.logger.Warnw(msg, toZapFields(a.extract(ctx, attrs))...)
+	a.log(ctx, zapcore.WarnLevel, msg, attrs)
 }
 
 func (a *adapter) ErrorCtx(ctx context.Context, msg string, attrs ...any) {
-	a.logger.Errorw(msg, toZapFields(a.extract(ctx, attrs))...)
+	a.log(ctx, zapcore.ErrorLevel, msg, attrs)
 }
 
 func (a *adapter) PanicCtx(ctx context.Context, msg string, attrs ...any) {
-	a.logger.Panicw(msg, toZapFields(a.extract(ctx, attrs))...)
+	a.log(ctx, zapcore.PanicLevel, msg, attrs)
 }
 
 func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
-	a.logger.Fatalw(msg, toZapFields(a.extract(ctx, attrs))...)
+	a.log(ctx, zapcore.FatalLevel, msg, attrs)
 }
 
 func (a *adapter) Sync() error {
@@ -118,13 +118,71 @@ func (a *adapter) Sync() error {
 	return err
 }
 
-func (a *adapter) extract(ctx context.Context, attrs []any) []any {
+func (a *adapter) log(ctx context.Context, lvl zapcore.Level, msg string, attrs []any) {
 	if a.extractor != nil && ctx != nil {
 		extracted := a.extractor(ctx)
 		if len(extracted) > 0 {
-			return append(extracted, attrs...)
+			attrs = append(extracted, attrs...)
 		}
 	}
 
-	return attrs
+	a.logger.Logw(lvl, msg, attrs...)
+}
+
+func buildEncoder(cfg *core.Config, isConsole bool) zapcore.Encoder {
+	enCfg := zap.NewProductionEncoderConfig()
+
+	if cfg.Development {
+		enCfg = zap.NewDevelopmentEncoderConfig()
+	}
+
+	enCfg.LevelKey = "level"
+	enCfg.MessageKey = "msg"
+	enCfg.TimeKey = "time"
+	enCfg.CallerKey = "caller"
+	enCfg.StacktraceKey = "stacktrace"
+
+	enCfg.EncodeTime = zapcore.TimeEncoderOfLayout(string(cfg.TimeLayout))
+	enCfg.EncodeLevel = zapcore.CapitalLevelEncoder
+
+	if cfg.Format == core.FormatText && isConsole && cfg.Development {
+		enCfg.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	}
+
+	if cfg.Format == core.FormatJSON {
+		return zapcore.NewJSONEncoder(enCfg)
+	}
+
+	return zapcore.NewConsoleEncoder(enCfg)
+}
+
+func toZapLevel(l core.Level) zapcore.Level {
+	switch l {
+	case core.LevelDebug:
+		return zapcore.DebugLevel
+	case core.LevelInfo:
+		return zapcore.InfoLevel
+	case core.LevelWarn:
+		return zapcore.WarnLevel
+	case core.LevelError:
+		return zapcore.ErrorLevel
+	case core.LevelPanic:
+		return zapcore.PanicLevel
+	case core.LevelFatal:
+		return zapcore.FatalLevel
+	default:
+		return zapcore.InfoLevel
+	}
+}
+
+func buildOptions(cfg *core.Config) []zap.Option {
+	opts := []zap.Option{
+		zap.AddStacktrace(zapcore.ErrorLevel),
+	}
+
+	if cfg.Development {
+		opts = append(opts, zap.WithCaller(true), zap.AddCallerSkip(1))
+	}
+
+	return opts
 }

@@ -310,4 +310,4 @@ clean-vendor: ## Remove vendor directory
 	@rm -rf vendor
 	@$(call print_success,"Vendor directory cleaned!")
 
-clean-all: clean-bin clean-tmp clean-coverage clean-vendor ## Deep clean everything
+clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor ## Deep clean everything
