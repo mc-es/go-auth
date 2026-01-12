@@ -58,51 +58,51 @@ func newZap(config *core.Config) (provider.Logger, error) {
 }
 
 func (a *adapter) Debug(msg string, attrs ...any) {
-	a.log(context.TODO(), zapcore.DebugLevel, msg, attrs)
+	a.log(zapcore.DebugLevel, msg, attrs)
 }
 
 func (a *adapter) Info(msg string, attrs ...any) {
-	a.log(context.TODO(), zapcore.InfoLevel, msg, attrs)
+	a.log(zapcore.InfoLevel, msg, attrs)
 }
 
 func (a *adapter) Warn(msg string, attrs ...any) {
-	a.log(context.TODO(), zapcore.WarnLevel, msg, attrs)
+	a.log(zapcore.WarnLevel, msg, attrs)
 }
 
 func (a *adapter) Error(msg string, attrs ...any) {
-	a.log(context.TODO(), zapcore.ErrorLevel, msg, attrs)
+	a.log(zapcore.ErrorLevel, msg, attrs)
 }
 
 func (a *adapter) Panic(msg string, attrs ...any) {
-	a.log(context.TODO(), zapcore.PanicLevel, msg, attrs)
+	a.log(zapcore.PanicLevel, msg, attrs)
 }
 
 func (a *adapter) Fatal(msg string, attrs ...any) {
-	a.log(context.TODO(), zapcore.FatalLevel, msg, attrs)
+	a.log(zapcore.FatalLevel, msg, attrs)
 }
 
 func (a *adapter) DebugCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, zapcore.DebugLevel, msg, attrs)
+	a.logWithCtx(ctx, zapcore.DebugLevel, msg, attrs)
 }
 
 func (a *adapter) InfoCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, zapcore.InfoLevel, msg, attrs)
+	a.logWithCtx(ctx, zapcore.InfoLevel, msg, attrs)
 }
 
 func (a *adapter) WarnCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, zapcore.WarnLevel, msg, attrs)
+	a.logWithCtx(ctx, zapcore.WarnLevel, msg, attrs)
 }
 
 func (a *adapter) ErrorCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, zapcore.ErrorLevel, msg, attrs)
+	a.logWithCtx(ctx, zapcore.ErrorLevel, msg, attrs)
 }
 
 func (a *adapter) PanicCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, zapcore.PanicLevel, msg, attrs)
+	a.logWithCtx(ctx, zapcore.PanicLevel, msg, attrs)
 }
 
 func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, zapcore.FatalLevel, msg, attrs)
+	a.logWithCtx(ctx, zapcore.FatalLevel, msg, attrs)
 }
 
 func (a *adapter) Sync() error {
@@ -118,7 +118,11 @@ func (a *adapter) Sync() error {
 	return err
 }
 
-func (a *adapter) log(ctx context.Context, lvl zapcore.Level, msg string, attrs []any) {
+func (a *adapter) log(lvl zapcore.Level, msg string, attrs []any) {
+	a.logger.Logw(lvl, msg, attrs...)
+}
+
+func (a *adapter) logWithCtx(ctx context.Context, lvl zapcore.Level, msg string, attrs []any) {
 	if a.extractor != nil && ctx != nil {
 		extracted := a.extractor(ctx)
 		if len(extracted) > 0 {
@@ -181,7 +185,7 @@ func buildOptions(cfg *core.Config) []zap.Option {
 	}
 
 	if cfg.Development {
-		opts = append(opts, zap.WithCaller(true), zap.AddCallerSkip(1))
+		opts = append(opts, zap.WithCaller(true), zap.AddCallerSkip(2))
 	}
 
 	return opts

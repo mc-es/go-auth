@@ -236,7 +236,7 @@ func TestNoContextExtractor(t *testing.T) {
 	tl.logger.Info(testMessage, testKey1, testValue1)
 	content := tl.readLogFile(t)
 
-	assert.Contains(t, content, `"extracted":"value"`)
+	assert.NotContains(t, content, `"extracted":"value"`)
 	assert.Contains(t, content, `"`+testKey1+`":"`+testValue1+`"`)
 }
 

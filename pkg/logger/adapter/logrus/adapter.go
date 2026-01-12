@@ -57,51 +57,51 @@ func newLogrus(config *core.Config) (provider.Logger, error) {
 }
 
 func (a *adapter) Debug(msg string, attrs ...any) {
-	a.log(context.TODO(), logrus.DebugLevel, msg, attrs)
+	a.log(logrus.DebugLevel, msg, attrs)
 }
 
 func (a *adapter) Info(msg string, attrs ...any) {
-	a.log(context.TODO(), logrus.InfoLevel, msg, attrs)
+	a.log(logrus.InfoLevel, msg, attrs)
 }
 
 func (a *adapter) Warn(msg string, attrs ...any) {
-	a.log(context.TODO(), logrus.WarnLevel, msg, attrs)
+	a.log(logrus.WarnLevel, msg, attrs)
 }
 
 func (a *adapter) Error(msg string, attrs ...any) {
-	a.log(context.TODO(), logrus.ErrorLevel, msg, attrs)
+	a.log(logrus.ErrorLevel, msg, attrs)
 }
 
 func (a *adapter) Panic(msg string, attrs ...any) {
-	a.log(context.TODO(), logrus.PanicLevel, msg, attrs)
+	a.log(logrus.PanicLevel, msg, attrs)
 }
 
 func (a *adapter) Fatal(msg string, attrs ...any) {
-	a.log(context.TODO(), logrus.FatalLevel, msg, attrs)
+	a.log(logrus.FatalLevel, msg, attrs)
 }
 
 func (a *adapter) DebugCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, logrus.DebugLevel, msg, attrs)
+	a.logWithCtx(ctx, logrus.DebugLevel, msg, attrs)
 }
 
 func (a *adapter) InfoCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, logrus.InfoLevel, msg, attrs)
+	a.logWithCtx(ctx, logrus.InfoLevel, msg, attrs)
 }
 
 func (a *adapter) WarnCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, logrus.WarnLevel, msg, attrs)
+	a.logWithCtx(ctx, logrus.WarnLevel, msg, attrs)
 }
 
 func (a *adapter) ErrorCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, logrus.ErrorLevel, msg, attrs)
+	a.logWithCtx(ctx, logrus.ErrorLevel, msg, attrs)
 }
 
 func (a *adapter) PanicCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, logrus.PanicLevel, msg, attrs)
+	a.logWithCtx(ctx, logrus.PanicLevel, msg, attrs)
 }
 
 func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
-	a.log(ctx, logrus.FatalLevel, msg, attrs)
+	a.logWithCtx(ctx, logrus.FatalLevel, msg, attrs)
 }
 
 func (a *adapter) Sync() error {
@@ -112,7 +112,11 @@ func (a *adapter) Sync() error {
 	return a.dests.Close()
 }
 
-func (a *adapter) log(ctx context.Context, level logrus.Level, msg string, attrs []any) {
+func (a *adapter) log(level logrus.Level, msg string, attrs []any) {
+	a.write(level, msg, attrs)
+}
+
+func (a *adapter) logWithCtx(ctx context.Context, level logrus.Level, msg string, attrs []any) {
 	if a.extractor != nil && ctx != nil {
 		extracted := a.extractor(ctx)
 		if len(extracted) > 0 {
@@ -120,6 +124,10 @@ func (a *adapter) log(ctx context.Context, level logrus.Level, msg string, attrs
 		}
 	}
 
+	a.write(level, msg, attrs)
+}
+
+func (a *adapter) write(level logrus.Level, msg string, attrs []any) {
 	fields := make(logrus.Fields, len(attrs)/2)
 	for i := 0; i < len(attrs); i += 2 {
 		key := attrs[i].(string)
@@ -127,7 +135,7 @@ func (a *adapter) log(ctx context.Context, level logrus.Level, msg string, attrs
 	}
 
 	if a.caller {
-		if _, file, line, ok := runtime.Caller(2); ok {
+		if _, file, line, ok := runtime.Caller(3); ok {
 			shortFile := path.Base(file) + ":" + strconv.Itoa(line)
 			fields["caller"] = shortFile
 		}
