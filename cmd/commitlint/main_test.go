@@ -130,9 +130,8 @@ func TestReadFirstLine(t *testing.T) {
 				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
-
-			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -217,9 +216,8 @@ func TestParseCommitMessage(t *testing.T) {
 				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
-
-			assert.Equal(t, tt.want, got)
 		})
 	}
 }
