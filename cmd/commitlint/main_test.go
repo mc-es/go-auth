@@ -493,7 +493,7 @@ func TestCheckRules(t *testing.T) {
 	) {
 		t.Helper()
 
-		l := &linter{
+		lint := &linter{
 			config:               config{msgMaxLen: 10, scopeMinLen: 2, scopeMaxLen: 15, subjectMinLen: 3},
 			scopeRegex:           regexp.MustCompile(`^[a-z0-9_-]+$`),
 			allowedTypes:         map[commitType]struct{}{feat: {}, fix: {}},
@@ -502,7 +502,7 @@ func TestCheckRules(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				got := check(tt.msg, l)
+				got := check(tt.msg, lint)
 				if tt.want != nil {
 					assert.ErrorIs(t, got, tt.want)
 				} else {
@@ -692,11 +692,12 @@ func createTempFile(t *testing.T, content string) string {
 
 	tmpFile, err := os.CreateTemp("", "commit-msg-*")
 	require.NoError(t, err)
-	t.Cleanup(func() { os.Remove(tmpFile.Name()) })
+	t.Cleanup(func() { _ = os.Remove(tmpFile.Name()) })
 
 	_, err = tmpFile.WriteString(content)
 	require.NoError(t, err)
-	tmpFile.Close()
+
+	_ = tmpFile.Close()
 
 	return tmpFile.Name()
 }
