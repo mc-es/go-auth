@@ -18,9 +18,10 @@ type (
 
 // Shortcuts for logger configuration.
 const (
-	DriverZap    = core.Driver("zap")
-	DriverLogrus = core.Driver("logrus")
-	DriverNop    = core.Driver("nop")
+	DriverZap     = core.Driver("zap")
+	DriverLogrus  = core.Driver("logrus")
+	DriverZerolog = core.Driver("zerolog")
+	DriverNop     = core.Driver("nop")
 
 	LevelDebug = core.LevelDebug
 	LevelInfo  = core.LevelInfo
@@ -69,7 +70,7 @@ func defaultConfig() core.Config {
 	)
 
 	return core.Config{
-		Driver:      DriverZap,
+		Driver:      DriverZerolog,
 		Level:       LevelDebug,
 		Format:      FormatJSON,
 		TimeLayout:  TimeLayoutDateTime,

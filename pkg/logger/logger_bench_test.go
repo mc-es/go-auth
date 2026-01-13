@@ -7,8 +7,8 @@ import (
 
 	"go-auth/pkg/logger"
 	_ "go-auth/pkg/logger/adapter/logrus"
-	_ "go-auth/pkg/logger/adapter/nop"
 	_ "go-auth/pkg/logger/adapter/zap"
+	_ "go-auth/pkg/logger/adapter/zerolog"
 )
 
 func BenchmarkZapLogger(b *testing.B) {
@@ -19,8 +19,8 @@ func BenchmarkLogrusLogger(b *testing.B) {
 	benchmarkLogger(b, logger.DriverLogrus)
 }
 
-func BenchmarkNopLogger(b *testing.B) {
-	benchmarkLogger(b, logger.DriverNop)
+func BenchmarkZerologLogger(b *testing.B) {
+	benchmarkLogger(b, logger.DriverZerolog)
 }
 
 func benchmarkLogger(b *testing.B, driver logger.Driver) {

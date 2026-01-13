@@ -197,6 +197,12 @@ func setupFormatter(log *logrus.Logger, cfg *core.Config, allowColor bool) {
 		log.SetFormatter(&logrus.JSONFormatter{
 			TimestampFormat: string(cfg.TimeLayout),
 			PrettyPrint:     allowColor && cfg.Development,
+			FieldMap: logrus.FieldMap{
+				logrus.FieldKeyTime:  "time",
+				logrus.FieldKeyLevel: "level",
+				logrus.FieldKeyMsg:   "msg",
+				logrus.FieldKeyFunc:  "caller",
+			},
 		})
 	} else {
 		log.SetFormatter(&logrus.TextFormatter{
