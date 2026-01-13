@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -346,4 +347,52 @@ func TestMultipleAttributes(t *testing.T) {
 	assert.Contains(t, content, `"key3":"value3"`)
 	assert.Contains(t, content, `"key4":42`)
 	assert.Contains(t, content, `"key5":true`)
+}
+
+func TestNamed(t *testing.T) {
+	tl := setupLogger(t,
+		logger.WithLevel(logger.LevelInfo),
+		logger.WithFormat(logger.FormatJSON),
+	)
+	defer tl.cleanup(t)
+
+	// Parent logger shouldn't have name
+	tl.logger.Info("parent message")
+
+	// Child logger should have name
+	child := tl.logger.Named("child")
+	child.Info("child message")
+
+	// Parent logger should still not have name
+	tl.logger.Info("parent message 2")
+
+	content := tl.readLogFile(t)
+	lines := strings.Split(strings.TrimSpace(content), "\n")
+	require.Len(t, lines, 3)
+
+	// Line 1: Parent
+	assert.Contains(t, lines[0], `"msg":"parent message"`)
+	assert.NotContains(t, lines[0], `"logger":"child"`)
+
+	// Line 2: Child
+	assert.Contains(t, lines[1], `"msg":"child message"`)
+	assert.Contains(t, lines[1], `"logger":"child"`)
+
+	// Line 3: Parent
+	assert.Contains(t, lines[2], `"msg":"parent message 2"`)
+	assert.NotContains(t, lines[2], `"logger":"child"`)
+}
+
+func TestNamedChain(t *testing.T) {
+	tl := setupLogger(t,
+		logger.WithLevel(logger.LevelInfo),
+		logger.WithFormat(logger.FormatJSON),
+	)
+	defer tl.cleanup(t)
+
+	child := tl.logger.Named("grandparent").Named("parent").Named("child")
+	child.Info("deep message")
+
+	content := tl.readLogFile(t)
+	assert.Contains(t, content, `"logger":"grandparent.parent.child"`)
 }

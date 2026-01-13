@@ -33,6 +33,5 @@ func (a *adapter) ErrorCtx(_ context.Context, _ string, _ ...any) { /* no-op */ 
 func (a *adapter) PanicCtx(_ context.Context, _ string, _ ...any) { /* no-op */ }
 func (a *adapter) FatalCtx(_ context.Context, _ string, _ ...any) { /* no-op */ }
 
-func (a *adapter) Sync() error {
-	return nil
-}
+func (a *adapter) Named(_ string) provider.Logger { return a }
+func (a *adapter) Sync() error                    { return nil }

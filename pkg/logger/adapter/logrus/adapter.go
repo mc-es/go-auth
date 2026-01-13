@@ -19,6 +19,7 @@ type adapter struct {
 	dests     *output.Destination
 	caller    bool
 	extractor core.ExtractCtxFunc
+	name      string
 }
 
 //nolint:gochecknoinits
@@ -104,6 +105,21 @@ func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
 	a.logWithCtx(ctx, logrus.FatalLevel, msg, attrs)
 }
 
+func (a *adapter) Named(name string) provider.Logger {
+	newName := name
+	if a.name != "" {
+		newName = a.name + "." + name
+	}
+
+	return &adapter{
+		loggers:   a.loggers,
+		dests:     a.dests,
+		caller:    a.caller,
+		extractor: a.extractor,
+		name:      newName,
+	}
+}
+
 func (a *adapter) Sync() error {
 	if a.dests == nil {
 		return nil
@@ -139,6 +155,10 @@ func (a *adapter) write(level logrus.Level, msg string, attrs []any) {
 			shortFile := path.Base(file) + ":" + strconv.Itoa(line)
 			fields["caller"] = shortFile
 		}
+	}
+
+	if a.name != "" {
+		fields["logger"] = a.name
 	}
 
 	for _, l := range a.loggers {

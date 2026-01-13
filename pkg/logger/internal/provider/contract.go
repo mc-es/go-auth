@@ -19,5 +19,6 @@ type Logger interface {
 	PanicCtx(ctx context.Context, msg string, attrs ...any)
 	FatalCtx(ctx context.Context, msg string, attrs ...any)
 
+	Named(name string) Logger
 	Sync() error
 }

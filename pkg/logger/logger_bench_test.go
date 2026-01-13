@@ -1,6 +1,8 @@
 package logger_test
 
 import (
+	"context"
+	"os"
 	"testing"
 
 	"go-auth/pkg/logger"
@@ -22,20 +24,80 @@ func BenchmarkNopLogger(b *testing.B) {
 }
 
 func benchmarkLogger(b *testing.B, driver logger.Driver) {
-	// Setup Logger
-	log, _ := logger.New(
+	logFile := createTempFile(b)
+	ctx := context.Background()
+
+	// Setup Logger with Info level
+	logInfo, _ := logger.New(
 		logger.WithDriver(driver),
 		logger.WithLevel(logger.LevelInfo),
 		logger.WithFormat(logger.FormatJSON),
-		logger.WithOutputPaths("/dev/null"), // Discard output
-		logger.WithFileRotation(1, 1000000, 1, false, false),
+		logger.WithOutputPaths(logFile),
 	)
 
-	b.Run("happy path", func(b *testing.B) {
+	// Setup Logger with Debug level
+	logDebug, _ := logger.New(
+		logger.WithDriver(driver),
+		logger.WithLevel(logger.LevelDebug),
+		logger.WithFormat(logger.FormatJSON),
+		logger.WithOutputPaths(logFile),
+	)
+
+	b.Run("log info", func(b *testing.B) {
 		b.ReportAllocs()
 
 		for i := 0; i < b.N; i++ {
-			log.Info("benchmark", "key1", "value1", "key2", "value2")
+			logInfo.Info("benchmark")
 		}
 	})
+
+	b.Run("log info with fields", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			logInfo.Info("benchmark", "key1", "value1", "key2", "value2")
+		}
+	})
+
+	b.Run("log info with context", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			logInfo.InfoCtx(ctx, "benchmark", "key1", "value1")
+		}
+	})
+
+	b.Run("log info with child logger", func(b *testing.B) {
+		child := logInfo.Named("sub-component")
+
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			child.Info("benchmark", "key", "value")
+		}
+	})
+
+	b.Run("log debug", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			logDebug.Debug("benchmark", "key1", "value1")
+		}
+	})
+}
+
+func createTempFile(b *testing.B) string {
+	b.Helper()
+
+	file, err := os.CreateTemp("", "bench-*.log")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	_ = file.Close()
+	name := file.Name()
+
+	b.Cleanup(func() { _ = os.Remove(name) })
+
+	return name
 }

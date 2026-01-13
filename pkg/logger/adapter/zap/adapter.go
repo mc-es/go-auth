@@ -105,6 +105,14 @@ func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
 	a.logWithCtx(ctx, zapcore.FatalLevel, msg, attrs)
 }
 
+func (a *adapter) Named(name string) provider.Logger {
+	return &adapter{
+		logger:    a.logger.Named(name),
+		dests:     a.dests,
+		extractor: a.extractor,
+	}
+}
+
 func (a *adapter) Sync() error {
 	var err error
 	if syncErr := a.logger.Sync(); syncErr != nil {
@@ -140,9 +148,10 @@ func buildEncoder(cfg *core.Config, isConsole bool) zapcore.Encoder {
 		enCfg = zap.NewDevelopmentEncoderConfig()
 	}
 
+	enCfg.NameKey = "logger"
 	enCfg.LevelKey = "level"
-	enCfg.MessageKey = "msg"
 	enCfg.TimeKey = "time"
+	enCfg.MessageKey = "msg"
 	enCfg.CallerKey = "caller"
 	enCfg.StacktraceKey = "stacktrace"
 
