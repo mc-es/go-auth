@@ -644,6 +644,11 @@ func TestCheckRules(t *testing.T) {
 				msg:  commitMessage{isBreaking: true, typ: fix},
 				want: errInvalidBreakingType,
 			},
+			{
+				name: "non-existent type",
+				msg:  commitMessage{isBreaking: true, typ: commitType("unknown")},
+				want: errInvalidBreakingType,
+			},
 		})
 	})
 
@@ -676,6 +681,21 @@ func TestCheckRules(t *testing.T) {
 			{
 				name: "uppercase start",
 				msg:  commitMessage{subject: "Abc"},
+				want: errSubjectNotLowercase,
+			},
+			{
+				name: "subject with number",
+				msg:  commitMessage{subject: "1abc"},
+				want: errSubjectNotLowercase,
+			},
+			{
+				name: "subject with special char",
+				msg:  commitMessage{subject: "@abc"},
+				want: errSubjectNotLowercase,
+			},
+			{
+				name: "subject with tab char",
+				msg:  commitMessage{subject: "\tabc"},
 				want: errSubjectNotLowercase,
 			},
 			{

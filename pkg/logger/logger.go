@@ -20,6 +20,7 @@ type (
 const (
 	DriverZap    = core.Driver("zap")
 	DriverLogrus = core.Driver("logrus")
+	DriverNop    = core.Driver("nop")
 
 	LevelDebug = core.LevelDebug
 	LevelInfo  = core.LevelInfo

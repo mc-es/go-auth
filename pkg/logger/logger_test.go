@@ -6,8 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"go-auth/pkg/logger"
-	_ "go-auth/pkg/logger/adapter/logrus"
-	_ "go-auth/pkg/logger/adapter/zap"
 	"go-auth/pkg/logger/internal/core"
 )
 
