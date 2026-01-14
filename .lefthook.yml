@@ -8,6 +8,8 @@ pre-commit:
     lint:
       run: make lint
       stage_fixed: true
+    test:
+      run: make test
     tidy:
       run: make deps-tidy
       stage_fixed: true

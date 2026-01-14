@@ -35,3 +35,8 @@ go.work.sum
 tmp
 bin
 dist
+
+# Log files
+*.log
+logs/
+*.log.*

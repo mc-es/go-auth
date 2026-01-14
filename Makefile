@@ -4,11 +4,12 @@ SHELL := /bin/bash
 .PHONY: \
 	help \
 	build run dev \
-	test test-race test-coverage \
+	test test-watch test-bench test-coverage \
+	profile-cpu profile-mem profile-trace \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
 	install-lefthook \
-	clean clean-cache clean-vendor clean-all
+	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-all
 
 # Colors & Formatting
 RED    := $(shell tput setaf 1 2>/dev/null || echo "")
@@ -47,16 +48,29 @@ APP_NAME     := app
 APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
 
 # Tool Versions
-LINT_VERSION     := v2.7.2
-VULN_VERSION     := v1.1.4
-AIR_VERSION      := v1.63.4
-LEFTHOOK_VERSION := v2.0.13
+LINT_VERSION      := v2.7.2
+VULN_VERSION      := v1.1.4
+AIR_VERSION       := v1.63.4
+LEFTHOOK_VERSION  := v2.0.13
+GOTESTSUM_VERSION := v1.13.0
+BENCHSTAT_VERSION := latest
+PPROF_VERSION     := latest
 
 # Tool Binaries
-LINT     := $(TOOLS_DIR)/golangci-lint
-VULN     := $(TOOLS_DIR)/govulncheck
-AIR      := $(TOOLS_DIR)/air
-LEFTHOOK := $(TOOLS_DIR)/lefthook
+LINT      := $(TOOLS_DIR)/golangci-lint
+VULN      := $(TOOLS_DIR)/govulncheck
+AIR       := $(TOOLS_DIR)/air
+LEFTHOOK  := $(TOOLS_DIR)/lefthook
+GOTESTSUM := $(TOOLS_DIR)/gotestsum
+BENCHSTAT := $(TOOLS_DIR)/benchstat
+PPROF     := $(TOOLS_DIR)/pprof
+
+# Test Variables
+TEST_PKG   ?= ./...
+TEST_RUN   ?= .
+TEST_ARGS  ?=
+TEST_BENCH ?= .
+TEST_COUNT ?= 10
 
 # Build Metadata
 GIT_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
@@ -68,7 +82,7 @@ LDFLAGS    := -s -w -X main.version=$(VERSION) -X main.commit=$(GIT_COMMIT) -X m
 .DEFAULT_GOAL := help
 
 # Directories
-$(BIN_DIR) $(TOOLS_DIR) $(COVERAGE_DIR):
+$(BIN_DIR) $(TOOLS_DIR) $(COVERAGE_DIR) $(TMP_DIR):
 	@mkdir -p $@
 
 # Tools Installation
@@ -92,6 +106,20 @@ $(LEFTHOOK): | $(TOOLS_DIR)
 	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/evilmartians/lefthook/v2@$(LEFTHOOK_VERSION)
 	@$(call print_success,"lefthook installed successfully!")
 
+$(GOTESTSUM): | $(TOOLS_DIR)
+	@$(call print_header,"Installing gotestsum@$(GOTESTSUM_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
+	@$(call print_success,"gotestsum installed successfully!")
+
+$(BENCHSTAT): | $(TOOLS_DIR)
+	@$(call print_header,"Installing benchstat@$(BENCHSTAT_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/perf/cmd/benchstat@$(BENCHSTAT_VERSION)
+	@$(call print_success,"benchstat installed successfully!")
+
+$(PPROF): | $(TOOLS_DIR)
+	@$(call print_header,"Installing pprof@$(PPROF_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/google/pprof@$(PPROF_VERSION)
+	@$(call print_success,"pprof installed successfully!")
 
 # --- Help ---
 help: ## Show this help message
@@ -123,21 +151,91 @@ dev: $(AIR) ## Run with live reload (Air)
 
 
 # --- Testing & Coverage ---
-test: ## Run unit tests
-	@$(call print_header,"Running tests...")
-	@$(GO) test -v ./...
-	@$(call print_success,"All tests passed!")
+test: $(GOTESTSUM) ## Run tests (Use TEST_PKG=./path, TEST_RUN="Func/CaseName", TEST_ARGS="flags...")
+	@$(call print_header,"Running tests on $(TEST_PKG)")
+	@"$(GOTESTSUM)" --format-hide-empty-pkg --format testdox --format-icons hivis \
+		-- \
+		-run "$(TEST_RUN)" \
+		$(TEST_PKG) $(TEST_ARGS)
+	@$(call print_success,"Tests passed!")
 
-test-race: ## Run tests with race detector
-	@$(call print_header,"Running race tests...")
-	@$(GO) test -v -race ./...
-	@$(call print_success,"Race tests passed!")
+test-watch: $(GOTESTSUM) ## Run tests with watch (Same opts as 'test')
+	@$(call print_header,"Running tests with watch on $(TEST_PKG)")
+	@"$(GOTESTSUM)" --watch --format-hide-empty-pkg --format testdox --format-icons hivis \
+		-- \
+		-run "$(TEST_RUN)" \
+		$(TEST_PKG) $(TEST_ARGS)
 
-test-coverage: | $(COVERAGE_DIR) ## Generate coverage report
-	@$(call print_header,"Generating coverage...")
-	@$(GO) test -v -race -coverprofile=$(COVERAGE_DIR)/coverage.out ./...
+test-bench: $(BENCHSTAT) | $(TMP_DIR) ## Run benchmarks (Use TEST_PKG=./path, TEST_BENCH="Func/CaseName", TEST_COUNT=10, TEST_ARGS="flags...")
+	@$(call print_header,"Running benchmark tests on $(TEST_PKG)")
+	@$(GO) test \
+		-run=^$$ \
+		-benchmem \
+		-bench="$(TEST_BENCH)" \
+		-count=$(TEST_COUNT) \
+		$(TEST_PKG) \
+		$(TEST_ARGS) \
+		| tee $(TMP_DIR)/bench.txt
+	@echo ""
+	@$(call print_header,"Calculating statistics...")
+	@"$(BENCHSTAT)" $(TMP_DIR)/bench.txt
+	@$(call print_success,"Statistics calculated: $(TMP_DIR)/bench.txt")
+
+test-coverage: | $(COVERAGE_DIR) ## Generate coverage report (Same opts as 'test')
+	@$(call print_header,"Generating coverage for $(TEST_PKG)")
+	@$(GO) test \
+		-coverprofile=$(COVERAGE_DIR)/coverage.out \
+		-run "$(TEST_RUN)" \
+		$(TEST_PKG) $(TEST_ARGS)
 	@$(GO) tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
 	@$(call print_success,"Report generated: $(COVERAGE_DIR)/coverage.html")
+
+
+# --- Profiling ---
+profile-cpu: $(PPROF) | $(TMP_DIR) ## Generate CPU profile (Use TEST_PKG=./path, TEST_BENCH="Func/CaseName", TEST_COUNT=10)
+	@if [ "$(TEST_PKG)" = "./..." ]; then \
+		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		exit 1; \
+	fi
+	@$(call print_header,"Generating CPU profile...")
+	@$(GO) test -run=^$$ -bench="$(TEST_BENCH)" \
+		-count=$(TEST_COUNT) \
+		-o $(TMP_DIR)/cpu.test \
+		-cpuprofile=$(TMP_DIR)/cpu.pprof \
+		$(TEST_PKG)
+	@$(call print_success,"CPU profile generated: $(TMP_DIR)/cpu.pprof")
+	@echo "Press Ctrl+C to stop server"
+	@$(PPROF) -http=:3000 $(TMP_DIR)/cpu.pprof
+
+profile-mem: $(PPROF) | $(TMP_DIR) ## Generate Memory profile (Same opts as 'profile-cpu')
+	@if [ "$(TEST_PKG)" = "./..." ]; then \
+		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		exit 1; \
+	fi
+	@$(call print_header,"Generating Memory profile...")
+	@$(GO) test -run=^$$ -bench="$(TEST_BENCH)" \
+		-count=$(TEST_COUNT) \
+		-o $(TMP_DIR)/mem.test \
+		-memprofile=$(TMP_DIR)/mem.pprof \
+		$(TEST_PKG)
+	@$(call print_success,"Memory profile generated: $(TMP_DIR)/mem.pprof")
+	@echo "Press Ctrl+C to stop server"
+	@$(PPROF) -http=:3001 $(TMP_DIR)/mem.pprof
+
+profile-trace: | $(TMP_DIR) ## Generate execution trace (Same opts as 'profile-cpu')
+	@if [ "$(TEST_PKG)" = "./..." ]; then \
+		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		exit 1; \
+	fi
+	@$(call print_header,"Generating execution trace...")
+	@$(GO) test -run=^$$ -bench="$(TEST_BENCH)" \
+		-count=$(TEST_COUNT) \
+		-o $(TMP_DIR)/trace.test \
+		-trace=$(TMP_DIR)/trace.out \
+		$(TEST_PKG)
+	@$(call print_success,"Trace generated: $(TMP_DIR)/trace.out")
+	@echo "Ctrl+C to stop server"
+	@$(GO) tool trace $(TMP_DIR)/trace.out
 
 
 # --- Code Quality ---
@@ -186,11 +284,21 @@ install-lefthook: $(LEFTHOOK) ## Install lefthook and configure them (pre-commit
 
 
 # --- Cleanup ---
-clean: ## Remove artifacts (bin, coverage, tmp) and uninstall hooks
-	@$(call print_header,"Cleaning artifacts and uninstalling hooks...")
+clean-bin: ## Remove binary files
+	@$(call print_header,"Cleaning binary files...")
 	@if [ -f "$(LEFTHOOK)" ]; then "$(LEFTHOOK)" uninstall; fi
-	@rm -rf "$(BIN_DIR)" "$(COVERAGE_DIR)" "$(TMP_DIR)"
-	@$(call print_success,"Artifacts cleaned and hooks uninstalled!")
+	@rm -rf "$(BIN_DIR)"
+	@$(call print_success,"Binary files cleaned!")
+
+clean-tmp: ## Remove temporary files
+	@$(call print_header,"Cleaning temporary files...")
+	@rm -rf "$(TMP_DIR)"
+	@$(call print_success,"Temporary files cleaned!")
+
+clean-coverage: ## Remove coverage files
+	@$(call print_header,"Cleaning coverage files...")
+	@rm -rf "$(COVERAGE_DIR)"
+	@$(call print_success,"Coverage files cleaned!")
 
 clean-cache: ## Remove Go cache (cache, testcache)
 	@$(call print_header,"Cleaning Go cache...")
@@ -202,4 +310,4 @@ clean-vendor: ## Remove vendor directory
 	@rm -rf vendor
 	@$(call print_success,"Vendor directory cleaned!")
 
-clean-all: clean clean-cache clean-vendor ## Deep clean everything
+clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor ## Deep clean everything

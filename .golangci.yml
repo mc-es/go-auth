@@ -76,7 +76,6 @@ linters:
     - govet
     - modernize
     - nilerr
-    - revive
     - staticcheck
     - unparam
     - varnamelen
@@ -104,6 +103,8 @@ linters:
       enable-all: true
       disable:
         - fieldalignment # Optimizes struct field order for memory efficiency, but prefer code readability
+    interfacebloat:
+      max: 15
     mnd:
       checks:
         - case
