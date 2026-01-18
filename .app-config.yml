@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=.vscode/app-config.schema.json
+
 app:
   name: go-auth
   env: dev
@@ -39,7 +41,7 @@ database:
   max_idle: 5
 
 auth:
-  jwt_secret: your-required-secret-key
+  jwt_secret: your-required-secret-key-32-chars
   access_ttl: 15m
   refresh_ttl: 48h
   hash_cost: 12
@@ -49,7 +51,7 @@ smtp:
   port: 587
   username: your-required-smtp-username
   password: your-required-smtp-password
-  from: your-required-smtp-from
+  from: your-required-smtp-from@example.com
 
 logger:
   driver: zap

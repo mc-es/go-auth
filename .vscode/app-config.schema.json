@@ -1,0 +1,404 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "App Configuration Schema",
+  "description": "YAML/JSON configuration schema for go-auth application.",
+  "type": "object",
+  "required": [
+    "app",
+    "server",
+    "cors",
+    "rate_limit",
+    "database",
+    "auth",
+    "smtp",
+    "logger"
+  ],
+  "properties": {
+    "app": {
+      "type": "object",
+      "description": "Application name and environment settings.",
+      "required": [
+        "name",
+        "env"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Application identifier (3-100 chars).",
+          "minLength": 3,
+          "maxLength": 100
+        },
+        "env": {
+          "type": "string",
+          "description": "Environment: dev or prod.",
+          "enum": [
+            "dev",
+            "prod"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "server": {
+      "type": "object",
+      "description": "HTTP server configuration and timeouts.",
+      "required": [
+        "host",
+        "port",
+        "idle_to",
+        "read_to",
+        "write_to",
+        "shutdown_to"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Server bind address (hostname or IP)."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Server listen port (0-65535).",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "idle_to": {
+          "$ref": "#/$defs/duration",
+          "description": "Connection idle timeout duration."
+        },
+        "read_to": {
+          "$ref": "#/$defs/duration",
+          "description": "Request read timeout duration."
+        },
+        "write_to": {
+          "$ref": "#/$defs/duration",
+          "description": "Response write timeout duration."
+        },
+        "shutdown_to": {
+          "$ref": "#/$defs/duration",
+          "description": "Graceful shutdown wait duration."
+        }
+      },
+      "additionalProperties": false
+    },
+    "cors": {
+      "type": "object",
+      "description": "Cross-Origin Resource Sharing (CORS) configuration.",
+      "required": [
+        "origins",
+        "methods",
+        "headers",
+        "max_age"
+      ],
+      "properties": {
+        "origins": {
+          "type": "array",
+          "description": "Allowed origin URLs.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "methods": {
+          "type": "array",
+          "description": "Allowed HTTP methods.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "DELETE",
+              "OPTIONS"
+            ]
+          }
+        },
+        "headers": {
+          "type": "array",
+          "description": "Allowed request headers.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "Content-Type",
+              "Authorization"
+            ]
+          }
+        },
+        "max_age": {
+          "type": "integer",
+          "description": "CORS preflight cache duration in seconds (0-86400).",
+          "minimum": 0,
+          "maximum": 86400
+        }
+      },
+      "additionalProperties": false
+    },
+    "rate_limit": {
+      "type": "object",
+      "description": "Request rate limiting configuration.",
+      "required": [
+        "limit",
+        "period"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Maximum requests allowed per period (1-1000).",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "period": {
+          "$ref": "#/$defs/duration",
+          "description": "Rate limit time window duration."
+        }
+      },
+      "additionalProperties": false
+    },
+    "database": {
+      "type": "object",
+      "description": "PostgreSQL database connection settings.",
+      "required": [
+        "name",
+        "host",
+        "port",
+        "user",
+        "password",
+        "ssl_mode",
+        "max_conns",
+        "max_idle"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "PostgreSQL database name (3-100 chars).",
+          "minLength": 3,
+          "maxLength": 100
+        },
+        "host": {
+          "type": "string",
+          "description": "Database server hostname or IP address."
+        },
+        "port": {
+          "type": "integer",
+          "description": "Database server port (0-65535).",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "user": {
+          "type": "string",
+          "description": "Database authentication username."
+        },
+        "password": {
+          "type": "string",
+          "description": "Database authentication password."
+        },
+        "ssl_mode": {
+          "type": "string",
+          "description": "PostgreSQL SSL connection mode.",
+          "enum": [
+            "disable",
+            "require",
+            "verify-ca",
+            "verify-full"
+          ]
+        },
+        "max_conns": {
+          "type": "integer",
+          "description": "Maximum database connections (1-100).",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "max_idle": {
+          "type": "integer",
+          "description": "Maximum idle connections (1-50, must be <= max_conns).",
+          "minimum": 1,
+          "maximum": 50
+        }
+      },
+      "additionalProperties": false
+    },
+    "auth": {
+      "type": "object",
+      "description": "JWT token and password hashing configuration.",
+      "required": [
+        "jwt_secret",
+        "access_ttl",
+        "refresh_ttl",
+        "hash_cost"
+      ],
+      "properties": {
+        "jwt_secret": {
+          "type": "string",
+          "description": "JWT signing secret key (32-512 chars).",
+          "minLength": 32,
+          "maxLength": 512
+        },
+        "access_ttl": {
+          "$ref": "#/$defs/duration",
+          "description": "Access token time-to-live duration."
+        },
+        "refresh_ttl": {
+          "$ref": "#/$defs/duration",
+          "description": "Refresh token time-to-live duration (must exceed access_ttl)."
+        },
+        "hash_cost": {
+          "type": "integer",
+          "description": "bcrypt hashing cost factor (10-15).",
+          "minimum": 10,
+          "maximum": 15
+        }
+      },
+      "additionalProperties": false
+    },
+    "smtp": {
+      "type": "object",
+      "description": "SMTP email server configuration.",
+      "required": [
+        "host",
+        "port",
+        "username",
+        "password",
+        "from"
+      ],
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "SMTP server hostname or IP address."
+        },
+        "port": {
+          "type": "integer",
+          "description": "SMTP server port (0-65535).",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "username": {
+          "type": "string",
+          "description": "SMTP authentication username."
+        },
+        "password": {
+          "type": "string",
+          "description": "SMTP authentication password."
+        },
+        "from": {
+          "type": "string",
+          "format": "email",
+          "description": "Sender email address for outgoing messages."
+        }
+      },
+      "additionalProperties": false
+    },
+    "logger": {
+      "type": "object",
+      "description": "Structured logging configuration (zap, logrus, zerolog).",
+      "required": [
+        "driver",
+        "level",
+        "format",
+        "time_layout",
+        "output_paths"
+      ],
+      "properties": {
+        "driver": {
+          "type": "string",
+          "enum": [
+            "logrus",
+            "zap",
+            "zerolog"
+          ],
+          "description": "Logging library driver (logrus, zap, zerolog)."
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error",
+            "panic",
+            "fatal"
+          ],
+          "description": "Minimum log level (debug, info, warn, error, panic, fatal)."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "text"
+          ],
+          "description": "Log output format (json or text)."
+        },
+        "time_layout": {
+          "type": "string",
+          "enum": [
+            "datetime",
+            "date",
+            "time",
+            "rfc3339",
+            "rfc822",
+            "rfc1123"
+          ],
+          "description": "Timestamp format (datetime, date, time, rfc3339, rfc822, rfc1123)."
+        },
+        "output_paths": {
+          "type": "array",
+          "description": "Log output destinations (stdout, stderr, or file paths).",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "development": {
+          "type": "boolean",
+          "description": "Development mode (caller, colors.).",
+          "default": false
+        },
+        "file_rotation": {
+          "type": "object",
+          "description": "Log file rotation settings (required for file output_paths).",
+          "properties": {
+            "max_age": {
+              "type": "integer",
+              "description": "Maximum days to retain log files (1-30).",
+              "minimum": 1,
+              "maximum": 30
+            },
+            "max_size": {
+              "type": "integer",
+              "description": "Maximum log file size in megabytes (1-100).",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "max_backups": {
+              "type": "integer",
+              "description": "Maximum number of rotated backup files (1-100).",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "local_time": {
+              "type": "boolean",
+              "default": true,
+              "description": "Use local timezone for rotation timestamps."
+            },
+            "compress": {
+              "type": "boolean",
+              "default": true,
+              "description": "Compress rotated log files (gzip)."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "duration": {
+      "type": "string",
+      "description": "Go-style duration: number + unit (ns, us, ms, s, m, h), e.g. 15m, 1h, 60s.",
+      "pattern": "^[0-9]+(ns|us|µs|ms|s|m|h)$"
+    }
+  }
+}
