@@ -7,6 +7,7 @@ tmp_dir = "tmp"
 cmd = "go build -o ./tmp/main ./cmd/app"
 entrypoint = ["./tmp/main"]
 include_ext = ["go", "env"]
+include_file = [".app-config.yml"]
 exclude_dir = ["tmp", "vendor", "dist", "bin", "coverage"]
 exclude_unchanged = true
 log = "./tmp/build-errors.log"

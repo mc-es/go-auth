@@ -1,0 +1,67 @@
+app:
+  name: go-auth
+  env: dev
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  idle_to: 60s
+  read_to: 15s
+  write_to: 15s
+  shutdown_to: 30s
+
+cors:
+  origins:
+    - http://localhost:3000
+  methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  headers:
+    - Content-Type
+    - Authorization
+  max_age: 600
+
+rate_limit:
+  limit: 500
+  period: 1m
+
+database:
+  name: your-required-database-name
+  host: your-required-database-host
+  port: 5432
+  user: your-required-database-user
+  password: your-required-database-password
+  ssl_mode: disable
+  max_conns: 10
+  max_idle: 5
+
+auth:
+  jwt_secret: your-required-secret-key
+  access_ttl: 15m
+  refresh_ttl: 48h
+  hash_cost: 12
+
+smtp:
+  host: your-required-smtp-host
+  port: 587
+  username: your-required-smtp-username
+  password: your-required-smtp-password
+  from: your-required-smtp-from
+
+logger:
+  driver: zap
+  level: debug
+  format: text
+  time_layout: datetime
+  output_paths:
+    - stdout
+  development: true
+  file_rotation:
+    max_age: 7
+    max_size: 100
+    max_backups: 3
+    local_time: true
+    compress: true

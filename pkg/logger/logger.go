@@ -71,7 +71,7 @@ func defaultConfig() core.Config {
 
 	return core.Config{
 		Driver:      DriverZerolog,
-		Level:       LevelDebug,
+		Level:       LevelInfo,
 		Format:      FormatJSON,
 		TimeLayout:  TimeLayoutDateTime,
 		OutputPaths: []string{"stdout"},
