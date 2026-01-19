@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/mc-es/go-auth/compare/v0.2.0...v0.3.0) (2026-01-19)
+
+
+### ✨ Features
+
+* **config:** introduce configuration management with viper and dotenv support and add logger bootstrap ([aef5444](https://github.com/mc-es/go-auth/commit/aef54442e5834e2e0ac322673d4ae9fb8a0280be))
+
 ## [0.2.0](https://github.com/mc-es/go-auth/compare/v0.1.0...v0.2.0) (2026-01-14)
 
 
