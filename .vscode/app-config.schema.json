@@ -10,8 +10,7 @@
     "rate_limit",
     "database",
     "auth",
-    "smtp",
-    "logger"
+    "smtp"
   ],
   "properties": {
     "app": {
@@ -291,14 +290,7 @@
     },
     "logger": {
       "type": "object",
-      "description": "Structured logging configuration (zap, logrus, zerolog).",
-      "required": [
-        "driver",
-        "level",
-        "format",
-        "time_layout",
-        "output_paths"
-      ],
+      "description": "Structured logging configuration.",
       "properties": {
         "driver": {
           "type": "string",
@@ -307,7 +299,7 @@
             "zap",
             "zerolog"
           ],
-          "description": "Logging library driver (logrus, zap, zerolog)."
+          "description": "Logging library driver."
         },
         "level": {
           "type": "string",
@@ -319,7 +311,7 @@
             "panic",
             "fatal"
           ],
-          "description": "Minimum log level (debug, info, warn, error, panic, fatal)."
+          "description": "Minimum log level."
         },
         "format": {
           "type": "string",
@@ -327,7 +319,7 @@
             "json",
             "text"
           ],
-          "description": "Log output format (json or text)."
+          "description": "Log output format."
         },
         "time_layout": {
           "type": "string",
@@ -339,7 +331,7 @@
             "rfc822",
             "rfc1123"
           ],
-          "description": "Timestamp format (datetime, date, time, rfc3339, rfc822, rfc1123)."
+          "description": "Timestamp format."
         },
         "output_paths": {
           "type": "array",
@@ -356,7 +348,7 @@
         },
         "file_rotation": {
           "type": "object",
-          "description": "Log file rotation settings (required for file output_paths).",
+          "description": "Log file rotation settings.",
           "properties": {
             "max_age": {
               "type": "integer",

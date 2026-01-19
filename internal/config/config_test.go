@@ -56,13 +56,6 @@ func validMinimalConfig() *config.Config {
 			Password: "pass",
 			From:     "test@example.com",
 		},
-		Logger: config.Logger{
-			Driver:      "zap",
-			Level:       "debug",
-			Format:      "text",
-			TimeLayout:  "datetime",
-			OutputPaths: []string{"stdout"},
-		},
 	}
 }
 

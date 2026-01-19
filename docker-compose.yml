@@ -1,0 +1,6 @@
+services:
+  app:
+    image: ghcr.io/mc-es/go-auth:latest
+    env_file:
+      - .env
+    restart: no

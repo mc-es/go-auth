@@ -55,6 +55,8 @@ dockers:
       - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:{{ .Tag }}"
       - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}:latest"
     dockerfile: Dockerfile
+    extra_files:
+      - .app-config.yml
     goos: linux
     goarch: amd64
     build_flag_templates:
