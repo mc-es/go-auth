@@ -1,48 +1,42 @@
 package main
 
 import (
-	"context"
+	"fmt"
+	"os"
 
+	"go-auth/internal/bootstrap"
+	"go-auth/internal/config"
 	"go-auth/pkg/logger"
 	_ "go-auth/pkg/logger/adapter/logrus"
 	_ "go-auth/pkg/logger/adapter/zap"
-)
-
-type contextKey string
-
-const (
-	traceIDKey contextKey = "trace_id"
-	userIDKey  contextKey = "user_id"
+	_ "go-auth/pkg/logger/adapter/zerolog"
 )
 
 func main() {
-	log, err := logger.New(
-		logger.WithDriver(logger.DriverZap),
-		logger.WithDevelopment(),
-		logger.WithContextExtractor(extractor),
-	)
+	cfg, err := config.NewLoader(
+		config.WithConfigName(".app-config"),
+		config.WithConfigPath("."),
+		config.WithConfigType("yml"),
+	).Load(".env")
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
+		os.Exit(1)
+	}
+
+	log, err := logger.New(bootstrap.BuildLoggerOptions(cfg)...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create logger: %v\n", err)
+		os.Exit(1)
 	}
 
 	defer func() { _ = log.Sync() }()
 
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, traceIDKey, "test-12345")
-	ctx = context.WithValue(ctx, userIDKey, 12345)
-	log.InfoCtx(ctx, "Hello, World!")
-}
-
-func extractor(ctx context.Context) []any {
-	var attrs []any
-
-	if traceID, ok := ctx.Value(traceIDKey).(string); ok {
-		attrs = append(attrs, string(traceIDKey), traceID)
-	}
-
-	if userID, ok := ctx.Value(userIDKey).(int); ok {
-		attrs = append(attrs, string(userIDKey), userID)
-	}
-
-	return attrs
+	log.Info("Application started",
+		"app_name", cfg.App.Name,
+		"env", cfg.App.Env,
+		"server_address", cfg.ServerAddr(),
+		"database_url", cfg.DatabaseURL(),
+		"smtp_address", cfg.SMTPAddr(),
+		"jwt_key_length", len(cfg.JWTKey()),
+	)
 }

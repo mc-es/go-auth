@@ -1,0 +1,4 @@
+# unclosed double-quoted string causes read error
+app:
+  name: "unclosed string
+env: dev

@@ -39,10 +39,6 @@ func WithOutputPaths(outputPaths ...string) Option {
 func WithDevelopment() Option {
 	return func(cfg *core.Config) {
 		cfg.Development = true
-		cfg.Level = LevelDebug
-		cfg.Format = FormatText
-		cfg.TimeLayout = TimeLayoutTimeOnly
-		cfg.OutputPaths = []string{"stdout"}
 	}
 }
 
