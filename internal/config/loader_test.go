@@ -50,20 +50,6 @@ smtp:
   username: "user"
   password: password
   from: no-reply@example.com
-logger:
-  driver: zap
-  level: debug
-  format: text
-  time_layout: datetime
-  output_paths:
-    - stdout
-  development: true
-  file_rotation:
-    max_age: 7
-    max_size: 100
-    max_backups: 3
-    local_time: true
-    compress: true
 `
 
 func TestLoadFromReader(t *testing.T) {

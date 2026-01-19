@@ -73,19 +73,19 @@ type SMTP struct {
 }
 
 type Logger struct {
-	Driver       string       `mapstructure:"driver"        validate:"oneof=logrus zap zerolog"`
-	Level        string       `mapstructure:"level"         validate:"oneof=debug info warn error panic fatal"`
-	Format       string       `mapstructure:"format"        validate:"oneof=json text"`
-	TimeLayout   string       `mapstructure:"time_layout"   validate:"oneof=datetime date time rfc3339 rfc822 rfc1123"`
-	OutputPaths  []string     `mapstructure:"output_paths"  validate:"min=1,dive"`
+	Driver       string       `mapstructure:"driver"        validate:"omitempty,oneof=logrus zap zerolog"`
+	Level        string       `mapstructure:"level"         validate:"omitempty,oneof=debug info warn error panic fatal"`
+	Format       string       `mapstructure:"format"        validate:"omitempty,oneof=json text"`
+	TimeLayout   string       `mapstructure:"time_layout"   validate:"omitempty,oneof=datetime date time rfc3339 rfc822 rfc1123"` //nolint:lll
+	OutputPaths  []string     `mapstructure:"output_paths"  validate:"omitempty,min=1,dive"`
 	Development  bool         `mapstructure:"development"`
 	FileRotation FileRotation `mapstructure:"file_rotation"`
 }
 
 type FileRotation struct {
-	MaxAge     int  `mapstructure:"max_age"     validate:"min=1,max=30"`
-	MaxSize    int  `mapstructure:"max_size"    validate:"min=1,max=100"`
-	MaxBackups int  `mapstructure:"max_backups" validate:"min=1,max=100"`
+	MaxAge     int  `mapstructure:"max_age"     validate:"omitempty,min=1,max=30"`
+	MaxSize    int  `mapstructure:"max_size"    validate:"omitempty,min=1,max=100"`
+	MaxBackups int  `mapstructure:"max_backups" validate:"omitempty,min=1,max=100"`
 	LocalTime  bool `mapstructure:"local_time"`
 	Compress   bool `mapstructure:"compress"`
 }
