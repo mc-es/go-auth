@@ -12,6 +12,7 @@ import (
 
 type Loader struct {
 	v          *viper.Viper
+	validator  *validator.Validate
 	configName string
 	configPath string
 	configType string
@@ -20,9 +21,17 @@ type Loader struct {
 
 type Option func(*Loader)
 
+var (
+	ErrConfigNotFound   = errors.New("config: file not found")
+	ErrConfigRead       = errors.New("config: file read error")
+	ErrConfigUnmarshal  = errors.New("config: file unmarshal error")
+	ErrConfigValidation = errors.New("config: file validation error")
+)
+
 func NewLoader(opts ...Option) *Loader {
 	loader := &Loader{
 		v:          viper.New(),
+		validator:  validator.New(),
 		configName: "config",
 		configPath: ".",
 		configType: "yaml",
@@ -49,19 +58,20 @@ func (l *Loader) Load(envFile string) (*Config, error) {
 
 	if err := l.v.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
-		if !errors.As(err, &notFound) {
-			return nil, fmt.Errorf("config file read error: %w", err)
+		if errors.As(err, &notFound) {
+			return nil, wrapError(ErrConfigNotFound, err)
 		}
+
+		return nil, wrapError(ErrConfigRead, err)
 	}
 
 	var cfg Config
 	if err := l.v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("config parse error: %w", err)
+		return nil, wrapError(ErrConfigUnmarshal, err)
 	}
 
-	validate := validator.New()
-	if err := validate.Struct(&cfg); err != nil {
-		return nil, fmt.Errorf("validation error: %w", err)
+	if err := l.validator.Struct(&cfg); err != nil {
+		return nil, wrapError(ErrConfigValidation, err)
 	}
 
 	return &cfg, nil
@@ -89,4 +99,8 @@ func WithEnvPrefix(prefix string) Option {
 	return func(l *Loader) {
 		l.envPrefix = prefix
 	}
+}
+
+func wrapError(sentinel, err error) error {
+	return fmt.Errorf("%w: %v", sentinel, err)
 }
