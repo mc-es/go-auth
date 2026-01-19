@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/mc-es/go-auth/compare/v0.3.0...v0.3.1) (2026-01-19)
+
+
+### 🐛 Bug Fixes
+
+* **config:** make logger optional and update related schema, tests and loader ([af4a88d](https://github.com/mc-es/go-auth/commit/af4a88dfe8ba25941438597fff90f69a69af4d45))
+* **docker-build:** add .app-config.yml to image, refactor config loader and simplify tests ([f7caa4e](https://github.com/mc-es/go-auth/commit/f7caa4ee5288d1a598a9daf973f8384d563e7824))
+
 ## [0.3.0](https://github.com/mc-es/go-auth/compare/v0.2.0...v0.3.0) (2026-01-19)
 
 
