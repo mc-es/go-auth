@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -11,52 +12,47 @@ import (
 )
 
 type Loader struct {
-	v          *viper.Viper
-	validator  *validator.Validate
-	configName string
-	configPath string
-	configType string
-	envPrefix  string
+	vip *viper.Viper
+	val *validator.Validate
 }
 
-type Option func(*Loader)
+const (
+	filePath  = "."
+	fileName  = ".app-config"
+	fileType  = "yaml"
+	envPrefix = "GO_AUTH"
+)
 
 var (
 	ErrConfigNotFound   = errors.New("config: file not found")
-	ErrConfigRead       = errors.New("config: file read error")
-	ErrConfigUnmarshal  = errors.New("config: file unmarshal error")
-	ErrConfigValidation = errors.New("config: file validation error")
+	ErrConfigRead       = errors.New("config: read error")
+	ErrConfigUnmarshal  = errors.New("config: unmarshal error")
+	ErrConfigValidation = errors.New("config: validation error")
 )
 
-func NewLoader(opts ...Option) *Loader {
-	loader := &Loader{
-		v:          viper.New(),
-		validator:  validator.New(),
-		configName: "config",
-		configPath: ".",
-		configType: "yaml",
-		envPrefix:  "",
+func NewLoader() *Loader {
+	vip := viper.New()
+
+	vip.AddConfigPath(filePath)
+	vip.SetConfigName(fileName)
+	vip.SetConfigType(fileType)
+
+	vip.SetEnvPrefix(envPrefix)
+	vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	vip.AutomaticEnv()
+
+	return &Loader{
+		vip: vip,
+		val: validator.New(),
 	}
-
-	for _, opt := range opts {
-		opt(loader)
-	}
-
-	loader.v.SetEnvPrefix(loader.envPrefix)
-	loader.v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	loader.v.AutomaticEnv()
-
-	return loader
 }
 
 func (l *Loader) Load(envFile string) (*Config, error) {
-	_ = godotenv.Load(envFile)
+	if envFile != "" {
+		_ = godotenv.Load(envFile)
+	}
 
-	l.v.SetConfigName(l.configName)
-	l.v.AddConfigPath(l.configPath)
-	l.v.SetConfigType(l.configType)
-
-	if err := l.v.ReadInConfig(); err != nil {
+	if err := l.vip.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
 		if errors.As(err, &notFound) {
 			return nil, wrapError(ErrConfigNotFound, err)
@@ -65,40 +61,28 @@ func (l *Loader) Load(envFile string) (*Config, error) {
 		return nil, wrapError(ErrConfigRead, err)
 	}
 
+	return l.process()
+}
+
+func (l *Loader) LoadFromReader(r io.Reader) (*Config, error) {
+	if err := l.vip.ReadConfig(r); err != nil {
+		return nil, wrapError(ErrConfigRead, err)
+	}
+
+	return l.process()
+}
+
+func (l *Loader) process() (*Config, error) {
 	var cfg Config
-	if err := l.v.Unmarshal(&cfg); err != nil {
+	if err := l.vip.Unmarshal(&cfg); err != nil {
 		return nil, wrapError(ErrConfigUnmarshal, err)
 	}
 
-	if err := l.validator.Struct(&cfg); err != nil {
+	if err := l.val.Struct(&cfg); err != nil {
 		return nil, wrapError(ErrConfigValidation, err)
 	}
 
 	return &cfg, nil
-}
-
-func WithConfigName(name string) Option {
-	return func(l *Loader) {
-		l.configName = name
-	}
-}
-
-func WithConfigPath(path string) Option {
-	return func(l *Loader) {
-		l.configPath = path
-	}
-}
-
-func WithConfigType(configType string) Option {
-	return func(l *Loader) {
-		l.configType = configType
-	}
-}
-
-func WithEnvPrefix(prefix string) Option {
-	return func(l *Loader) {
-		l.envPrefix = prefix
-	}
 }
 
 func wrapError(sentinel, err error) error {

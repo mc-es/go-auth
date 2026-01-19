@@ -13,11 +13,7 @@ import (
 )
 
 func main() {
-	cfg, err := config.NewLoader(
-		config.WithConfigName(".app-config"),
-		config.WithConfigPath("."),
-		config.WithConfigType("yml"),
-	).Load(".env")
+	cfg, err := config.NewLoader().Load(".env")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
 		os.Exit(1)

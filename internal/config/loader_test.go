@@ -1,7 +1,9 @@
 package config_test
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -9,86 +11,146 @@ import (
 	"go-auth/internal/config"
 )
 
-const (
-	testdataPath  = "testdata"
-	validFile     = "config.valid"
-	invalidFile   = "config.invalid"
-	readErrorFile = "config.readerror"
-	unmarshalFile = "config.unmarshal"
-)
+const configYAML = `
+app:
+  name: go-auth-test
+  env: dev
+server:
+  host: localhost
+  port: 8080
+  idle_to: 60s
+  read_to: 10s
+  write_to: 10s
+  shutdown_to: 15s
+cors:
+  origins: [http://localhost:3000]
+  methods: [GET, POST]
+  headers: [Content-Type]
+  max_age: 600
+rate_limit:
+  limit: 100
+  period: 1m
+database:
+  name: testdb
+  host: localhost
+  port: 5432
+  user: postgres
+  password: password
+  ssl_mode: disable
+  max_conns: 10
+  max_idle: 5
+auth:
+  jwt_secret: 12345678901234567890123456789012
+  access_ttl: 15m
+  refresh_ttl: 24h
+  hash_cost: 10
+smtp:
+  host: smtp.mailtrap.io
+  port: 2525
+  username: "user"
+  password: password
+  from: no-reply@example.com
+logger:
+  driver: zap
+  level: debug
+  format: text
+  time_layout: datetime
+  output_paths:
+    - stdout
+  development: true
+  file_rotation:
+    max_age: 7
+    max_size: 100
+    max_backups: 3
+    local_time: true
+    compress: true
+`
 
-func newTestLoader(configName string, opts ...config.Option) *config.Loader {
-	base := []config.Option{
-		config.WithConfigName(configName),
-		config.WithConfigPath(testdataPath),
-		config.WithConfigType("yml"),
+func TestLoadFromReader(t *testing.T) {
+	type modifierFunc func(string) string
+
+	tests := []struct {
+		name     string
+		modifier modifierFunc
+		want     error
+		assert   func(*testing.T, *config.Config)
+	}{
+		{
+			name: "valid config",
+			assert: func(t *testing.T, c *config.Config) {
+				assert.Equal(t, "go-auth-test", c.App.Name)
+				assert.Equal(t, 8080, int(c.Server.Port))
+				assert.Equal(t, 60*time.Second, c.Server.IdleTO)
+			},
+		},
+		{
+			name: "required field missing",
+			modifier: func(s string) string {
+				return strings.Replace(s, `name: go-auth-test`, "", 1)
+			},
+			want: config.ErrConfigValidation,
+		},
+		{
+			name: "readto greater than idleto",
+			modifier: func(s string) string {
+				s = strings.Replace(s, `idle_to: 60s`, `idle_to: 10s`, 1)
+				s = strings.Replace(s, `read_to: 10s`, `read_to: 20s`, 1)
+
+				return s
+			},
+			want: config.ErrConfigValidation,
+		},
+		{
+			name: "syntax invalid yaml",
+			modifier: func(s string) string {
+				return strings.Replace(s, `port: 8080`, `port: "not-a-number"`, 1)
+			},
+			want: config.ErrConfigUnmarshal,
+		},
+		{
+			name: "invalid enum",
+			modifier: func(s string) string {
+				return strings.Replace(s, `env: dev`, `env: staging`, 1)
+			},
+			want: config.ErrConfigValidation,
+		},
 	}
 
-	return config.NewLoader(append(base, opts...)...)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			yamlContent := configYAML
+			if tt.modifier != nil {
+				yamlContent = tt.modifier(yamlContent)
+			}
+
+			l := config.NewLoader()
+			cfg, err := l.LoadFromReader(strings.NewReader(yamlContent))
+
+			if tt.want != nil {
+				require.Error(t, err)
+				assert.ErrorIs(t, err, tt.want)
+				assert.Nil(t, cfg)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, cfg)
+
+				if tt.assert != nil {
+					tt.assert(t, cfg)
+				}
+			}
+		})
+	}
 }
 
-func TestLoadWithValidConfig(t *testing.T) {
-	t.Parallel()
+func TestLoadFileNotFound(t *testing.T) {
+	l := config.NewLoader()
 
-	l := newTestLoader(validFile)
 	cfg, err := l.Load("")
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
 
-	assert.Equal(t, "go-auth", cfg.App.Name)
-	assert.Equal(t, "dev", cfg.App.Env)
-	assert.Equal(t, "0.0.0.0:8080", cfg.ServerAddr())
-	assert.Equal(t, "testdb", cfg.Database.Name)
-	assert.Equal(t, "smtp.example.com:587", cfg.SMTPAddr())
-	assert.Len(t, cfg.JWTKey(), 32)
-}
-
-func TestLoadWithEnvOverridesFile(t *testing.T) {
-	t.Setenv("TEST_APP_NAME", "from-env")
-
-	l := newTestLoader(validFile, config.WithEnvPrefix("TEST"))
-	cfg, err := l.Load("")
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
-	assert.Equal(t, "from-env", cfg.App.Name)
-}
-
-func TestLoadWithInvalidConfig(t *testing.T) {
-	t.Parallel()
-
-	l := newTestLoader(invalidFile)
-	cfg, err := l.Load("")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cfg)
-	assert.ErrorIs(t, err, config.ErrConfigValidation)
-}
 
-func TestLoadWithFileNotFound(t *testing.T) {
-	t.Parallel()
-
-	l := newTestLoader("nonexistent")
-	cfg, err := l.Load("")
-	assert.Error(t, err)
-	assert.Nil(t, cfg)
 	assert.ErrorIs(t, err, config.ErrConfigNotFound)
-}
-
-func TestLoadWithReadError(t *testing.T) {
-	t.Parallel()
-
-	l := newTestLoader(readErrorFile)
-	cfg, err := l.Load("")
-	assert.Error(t, err)
-	assert.Nil(t, cfg)
-	assert.ErrorIs(t, err, config.ErrConfigRead)
-}
-
-func TestLoadWithUnmarshalError(t *testing.T) {
-	t.Parallel()
-
-	l := newTestLoader(unmarshalFile)
-	cfg, err := l.Load("")
-	assert.Error(t, err)
-	assert.Nil(t, cfg)
-	assert.ErrorIs(t, err, config.ErrConfigUnmarshal)
 }
