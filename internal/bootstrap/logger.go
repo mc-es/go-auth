@@ -45,8 +45,6 @@ func BuildLoggerOptions(cfg *config.Config) []logger.Option {
 
 func driverOption(cfg *config.Logger) logger.Option {
 	switch strings.ToLower(cfg.Driver) {
-	case "logrus":
-		return logger.WithDriver(logger.DriverLogrus)
 	case "zap":
 		return logger.WithDriver(logger.DriverZap)
 	case "zerolog":
@@ -98,8 +96,6 @@ func timeLayoutOption(cfg *config.Logger) logger.Option {
 		return logger.WithTimeLayout(logger.TimeLayoutRFC3339)
 	case "rfc822":
 		return logger.WithTimeLayout(logger.TimeLayoutRFC822)
-	case "rfc1123":
-		return logger.WithTimeLayout(logger.TimeLayoutRFC1123)
 	default:
 		return nil
 	}

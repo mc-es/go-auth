@@ -1,4 +1,4 @@
-package provider_test
+package registry_test
 
 import (
 	"sync"
@@ -8,19 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"go-auth/pkg/logger/internal/core"
-	"go-auth/pkg/logger/internal/provider"
+	"go-auth/pkg/logger/internal/registry"
 )
 
 // mockFactory is a simple factory for testing purposes.
-func mockFactory(_ *core.Config) (provider.Logger, error) {
+func mockFactory(_ *core.Config) (core.Logger, error) {
 	return nil, nil
 }
 
 func TestRegistry(t *testing.T) {
 	t.Run("success register and get", func(t *testing.T) {
 		driverName := core.Driver("test_driver_success")
-		provider.Register(driverName, mockFactory)
-		factory, err := provider.Get(driverName)
+		registry.Register(driverName, mockFactory)
+		factory, err := registry.Get(driverName)
 
 		require.NoError(t, err)
 		assert.NotNil(t, factory)
@@ -30,22 +30,22 @@ func TestRegistry(t *testing.T) {
 		driverName := core.Driver("test_driver_nil")
 
 		assert.PanicsWithError(t, core.ErrNilFactory.Error(), func() {
-			provider.Register(driverName, nil)
+			registry.Register(driverName, nil)
 		})
 	})
 
 	t.Run("duplicate registration panic", func(t *testing.T) {
 		driverName := core.Driver("test_driver_duplicate")
-		provider.Register(driverName, mockFactory)
+		registry.Register(driverName, mockFactory)
 
 		assert.PanicsWithError(t, core.ErrFactoryAlreadyRegistered.Error(), func() {
-			provider.Register(driverName, mockFactory)
+			registry.Register(driverName, mockFactory)
 		})
 	})
 
 	t.Run("unknown driver", func(t *testing.T) {
 		driverName := core.Driver("unknown_driver")
-		factory, err := provider.Get(driverName)
+		factory, err := registry.Get(driverName)
 		assert.ErrorIs(t, err, core.ErrUnknownDriver)
 		assert.Nil(t, factory)
 	})
@@ -65,7 +65,7 @@ func TestRegistryConcurrency(t *testing.T) {
 			defer wg.Done()
 
 			driverName := core.Driver("concurrent_driver_" + string(rune(id)))
-			provider.Register(driverName, mockFactory)
+			registry.Register(driverName, mockFactory)
 		}(i)
 	}
 
@@ -73,9 +73,9 @@ func TestRegistryConcurrency(t *testing.T) {
 	for range workers {
 		wg.Go(func() {
 			// Try to get a potentially existing driver
-			_, _ = provider.Get(core.Driver("concurrent_driver_0"))
+			_, _ = registry.Get(core.Driver("concurrent_driver_0"))
 			// Try to get a non-existing driver
-			_, _ = provider.Get(core.Driver("non_existent"))
+			_, _ = registry.Get(core.Driver("non_existent"))
 		})
 	}
 

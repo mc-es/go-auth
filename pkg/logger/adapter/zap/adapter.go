@@ -9,7 +9,7 @@ import (
 
 	"go-auth/pkg/logger/internal/core"
 	"go-auth/pkg/logger/internal/output"
-	"go-auth/pkg/logger/internal/provider"
+	"go-auth/pkg/logger/internal/registry"
 )
 
 type adapter struct {
@@ -20,10 +20,10 @@ type adapter struct {
 
 //nolint:gochecknoinits
 func init() {
-	provider.Register(core.Driver("zap"), newZap)
+	registry.Register(core.Driver("zap"), newZap)
 }
 
-func newZap(config *core.Config) (provider.Logger, error) {
+func newZap(config *core.Config) (core.Logger, error) {
 	dests, err := output.New(config)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
 	a.logWithCtx(ctx, zapcore.FatalLevel, msg, attrs)
 }
 
-func (a *adapter) Named(name string) provider.Logger {
+func (a *adapter) Named(name string) core.Logger {
 	return &adapter{
 		logger:    a.logger.Named(name),
 		dests:     a.dests,

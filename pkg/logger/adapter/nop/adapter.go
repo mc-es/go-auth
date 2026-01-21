@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"go-auth/pkg/logger/internal/core"
-	"go-auth/pkg/logger/internal/provider"
+	"go-auth/pkg/logger/internal/registry"
 )
 
 // adapter is a no-operation logger that discards all log messages.
@@ -12,10 +12,10 @@ type adapter struct{}
 
 //nolint:gochecknoinits
 func init() {
-	provider.Register(core.Driver("nop"), newNop)
+	registry.Register(core.Driver("nop"), newNop)
 }
 
-func newNop(_ *core.Config) (provider.Logger, error) {
+func newNop(_ *core.Config) (core.Logger, error) {
 	return &adapter{}, nil
 }
 
@@ -33,5 +33,5 @@ func (a *adapter) ErrorCtx(_ context.Context, _ string, _ ...any) { /* no-op */ 
 func (a *adapter) PanicCtx(_ context.Context, _ string, _ ...any) { /* no-op */ }
 func (a *adapter) FatalCtx(_ context.Context, _ string, _ ...any) { /* no-op */ }
 
-func (a *adapter) Named(_ string) provider.Logger { return a }
-func (a *adapter) Sync() error                    { return nil }
+func (a *adapter) Named(_ string) core.Logger { return a }
+func (a *adapter) Sync() error                { return nil }

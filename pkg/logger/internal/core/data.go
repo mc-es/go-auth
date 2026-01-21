@@ -52,5 +52,4 @@ const (
 	TimeLayoutTimeOnly TimeLayout = time.TimeOnly
 	TimeLayoutRFC3339  TimeLayout = time.RFC3339
 	TimeLayoutRFC822   TimeLayout = time.RFC822
-	TimeLayoutRFC1123  TimeLayout = time.RFC1123
 )

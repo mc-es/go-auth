@@ -2,12 +2,12 @@ package logger
 
 import (
 	"go-auth/pkg/logger/internal/core"
-	"go-auth/pkg/logger/internal/provider"
+	"go-auth/pkg/logger/internal/registry"
 )
 
 // Shortcuts for logger types.
 type (
-	Logger         = provider.Logger
+	Logger         = core.Logger
 	Driver         = core.Driver
 	Level          = core.Level
 	Format         = core.Format
@@ -19,7 +19,6 @@ type (
 // Shortcuts for logger configuration.
 const (
 	DriverZap     = core.Driver("zap")
-	DriverLogrus  = core.Driver("logrus")
 	DriverZerolog = core.Driver("zerolog")
 	DriverNop     = core.Driver("nop")
 
@@ -38,7 +37,6 @@ const (
 	TimeLayoutTimeOnly = core.TimeLayoutTimeOnly
 	TimeLayoutRFC3339  = core.TimeLayoutRFC3339
 	TimeLayoutRFC822   = core.TimeLayoutRFC822
-	TimeLayoutRFC1123  = core.TimeLayoutRFC1123
 )
 
 func New(opts ...Option) (Logger, error) {
@@ -52,7 +50,7 @@ func New(opts ...Option) (Logger, error) {
 		return nil, err
 	}
 
-	factory, err := provider.Get(cfg.Driver)
+	factory, err := registry.Get(cfg.Driver)
 	if err != nil {
 		return nil, err
 	}

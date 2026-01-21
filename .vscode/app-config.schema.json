@@ -295,7 +295,6 @@
         "driver": {
           "type": "string",
           "enum": [
-            "logrus",
             "zap",
             "zerolog"
           ],
@@ -328,8 +327,7 @@
             "date",
             "time",
             "rfc3339",
-            "rfc822",
-            "rfc1123"
+            "rfc822"
           ],
           "description": "Timestamp format."
         },
