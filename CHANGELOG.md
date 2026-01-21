@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/mc-es/go-auth/compare/v0.3.1...v0.4.0) (2026-01-21)
+
+
+### ✨ Features
+
+* **apperror:** introduce structured error handling with custom error codes and response utilities ([3ad409f](https://github.com/mc-es/go-auth/commit/3ad409f633338d741ab3076931ff7a9165dd7114))
+
+
+### 🐛 Bug Fixes
+
+* **apperror:** replace New function with newError for improved error handling and update related tests ([7080e5d](https://github.com/mc-es/go-auth/commit/7080e5d2c19779c1b6ff6219cac939683f6b51da))
+
 ## [0.3.1](https://github.com/mc-es/go-auth/compare/v0.3.0...v0.3.1) (2026-01-19)
 
 
