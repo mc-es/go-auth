@@ -147,7 +147,6 @@ func TestTimeLayout(t *testing.T) {
 		{"TimeOnly", logger.TimeLayoutTimeOnly},
 		{"RFC3339", logger.TimeLayoutRFC3339},
 		{"RFC822", logger.TimeLayoutRFC822},
-		{"RFC1123", logger.TimeLayoutRFC1123},
 	}
 
 	for _, tt := range tests {

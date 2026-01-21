@@ -96,8 +96,6 @@ func timeLayoutOption(cfg *config.Logger) logger.Option {
 		return logger.WithTimeLayout(logger.TimeLayoutRFC3339)
 	case "rfc822":
 		return logger.WithTimeLayout(logger.TimeLayoutRFC822)
-	case "rfc1123":
-		return logger.WithTimeLayout(logger.TimeLayoutRFC1123)
 	default:
 		return nil
 	}

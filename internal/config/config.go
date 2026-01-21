@@ -76,7 +76,7 @@ type Logger struct {
 	Driver       string       `mapstructure:"driver"        validate:"omitempty,oneof=zap zerolog"`
 	Level        string       `mapstructure:"level"         validate:"omitempty,oneof=debug info warn error panic fatal"`
 	Format       string       `mapstructure:"format"        validate:"omitempty,oneof=json text"`
-	TimeLayout   string       `mapstructure:"time_layout"   validate:"omitempty,oneof=datetime date time rfc3339 rfc822 rfc1123"` //nolint:lll
+	TimeLayout   string       `mapstructure:"time_layout"   validate:"omitempty,oneof=datetime date time rfc3339 rfc822"`
 	OutputPaths  []string     `mapstructure:"output_paths"  validate:"omitempty,min=1,dive"`
 	Development  bool         `mapstructure:"development"`
 	FileRotation FileRotation `mapstructure:"file_rotation"`

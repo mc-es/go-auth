@@ -37,7 +37,6 @@ const (
 	TimeLayoutTimeOnly = core.TimeLayoutTimeOnly
 	TimeLayoutRFC3339  = core.TimeLayoutRFC3339
 	TimeLayoutRFC822   = core.TimeLayoutRFC822
-	TimeLayoutRFC1123  = core.TimeLayoutRFC1123
 )
 
 func New(opts ...Option) (Logger, error) {
