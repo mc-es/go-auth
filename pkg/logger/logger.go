@@ -19,7 +19,6 @@ type (
 // Shortcuts for logger configuration.
 const (
 	DriverZap     = core.Driver("zap")
-	DriverLogrus  = core.Driver("logrus")
 	DriverZerolog = core.Driver("zerolog")
 	DriverNop     = core.Driver("nop")
 

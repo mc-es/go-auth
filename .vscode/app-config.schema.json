@@ -295,7 +295,6 @@
         "driver": {
           "type": "string",
           "enum": [
-            "logrus",
             "zap",
             "zerolog"
           ],

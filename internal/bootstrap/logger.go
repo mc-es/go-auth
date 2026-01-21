@@ -45,8 +45,6 @@ func BuildLoggerOptions(cfg *config.Config) []logger.Option {
 
 func driverOption(cfg *config.Logger) logger.Option {
 	switch strings.ToLower(cfg.Driver) {
-	case "logrus":
-		return logger.WithDriver(logger.DriverLogrus)
 	case "zap":
 		return logger.WithDriver(logger.DriverZap)
 	case "zerolog":

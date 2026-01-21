@@ -73,7 +73,7 @@ type SMTP struct {
 }
 
 type Logger struct {
-	Driver       string       `mapstructure:"driver"        validate:"omitempty,oneof=logrus zap zerolog"`
+	Driver       string       `mapstructure:"driver"        validate:"omitempty,oneof=zap zerolog"`
 	Level        string       `mapstructure:"level"         validate:"omitempty,oneof=debug info warn error panic fatal"`
 	Format       string       `mapstructure:"format"        validate:"omitempty,oneof=json text"`
 	TimeLayout   string       `mapstructure:"time_layout"   validate:"omitempty,oneof=datetime date time rfc3339 rfc822 rfc1123"` //nolint:lll

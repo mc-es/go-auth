@@ -7,7 +7,6 @@ import (
 	"go-auth/internal/bootstrap"
 	"go-auth/internal/config"
 	"go-auth/pkg/logger"
-	_ "go-auth/pkg/logger/adapter/logrus"
 	_ "go-auth/pkg/logger/adapter/zap"
 	_ "go-auth/pkg/logger/adapter/zerolog"
 )
