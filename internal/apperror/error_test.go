@@ -11,72 +11,6 @@ import (
 	"go-auth/internal/apperror"
 )
 
-func TestNew(t *testing.T) {
-	tests := []struct {
-		name        string
-		status      int
-		code        apperror.Code
-		message     string
-		cause       error
-		wantStatus  int
-		wantCode    apperror.Code
-		wantMessage string
-	}{
-		{
-			name:        "valid error",
-			status:      http.StatusBadRequest,
-			code:        apperror.ErrCodePasswordTooWeak,
-			message:     "Password too weak",
-			cause:       nil,
-			wantStatus:  http.StatusBadRequest,
-			wantCode:    apperror.ErrCodePasswordTooWeak,
-			wantMessage: "Password too weak",
-		},
-		{
-			name:        "invalid status",
-			status:      0,
-			code:        apperror.ErrCodeUnauthorized,
-			message:     "Unauthorized",
-			cause:       errors.New("unauthorized"),
-			wantStatus:  http.StatusInternalServerError,
-			wantCode:    apperror.ErrCodeUnauthorized,
-			wantMessage: "Unauthorized",
-		},
-		{
-			name:        "empty code",
-			status:      http.StatusUnauthorized,
-			code:        "",
-			message:     "Unauthorized",
-			cause:       errors.New("unauthorized"),
-			wantStatus:  http.StatusUnauthorized,
-			wantCode:    apperror.ErrCodeInternalServer,
-			wantMessage: "Unauthorized",
-		},
-		{
-			name:        "empty message",
-			status:      http.StatusNotFound,
-			code:        apperror.ErrCodeUserNotFound,
-			message:     "",
-			cause:       errors.New("user not found"),
-			wantStatus:  http.StatusNotFound,
-			wantCode:    apperror.ErrCodeUserNotFound,
-			wantMessage: http.StatusText(http.StatusNotFound),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := apperror.New(tt.status, tt.code, tt.message, tt.cause)
-			assert.Equal(t, tt.wantStatus, got.Status)
-			assert.Equal(t, tt.wantCode, got.Code)
-			assert.Equal(t, tt.wantMessage, got.Message)
-			assert.Equal(t, tt.cause, got.Cause)
-		})
-	}
-}
-
 func TestError(t *testing.T) {
 	causeErr := errors.New("sql: no rows in result set")
 	tests := []struct {
@@ -181,12 +115,47 @@ func TestIs(t *testing.T) {
 	}
 }
 
-func TestErrorFactories(t *testing.T) {
-	type factoryFunc func(code apperror.Code, message string, cause error) *apperror.Error
+func TestNormalization(t *testing.T) {
+	tests := []struct {
+		name        string
+		err         *apperror.Error
+		wantStatus  int
+		wantCode    apperror.Code
+		wantMessage string
+	}{
+		{
+			name:        "empty code becomes ErrCodeInternalServer",
+			err:         apperror.BadRequest("", "some message", nil),
+			wantStatus:  http.StatusBadRequest,
+			wantCode:    apperror.ErrCodeInternalServer,
+			wantMessage: "some message",
+		},
+		{
+			name:        "empty message becomes http.StatusText(status)",
+			err:         apperror.NotFound(apperror.ErrCodeUserNotFound, "", nil),
+			wantStatus:  http.StatusNotFound,
+			wantCode:    apperror.ErrCodeUserNotFound,
+			wantMessage: http.StatusText(http.StatusNotFound),
+		},
+	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tt.err
+
+			assert.Equal(t, tt.wantStatus, got.Status)
+			assert.Equal(t, tt.wantCode, got.Code)
+			assert.Equal(t, tt.wantMessage, got.Message)
+		})
+	}
+}
+
+func TestErrorFactories(t *testing.T) {
 	tests := []struct {
 		name       string
-		factory    factoryFunc
+		factory    func(code apperror.Code, message string, cause error) *apperror.Error
 		wantStatus int
 	}{
 		{name: "BadRequest", factory: apperror.BadRequest, wantStatus: http.StatusBadRequest},

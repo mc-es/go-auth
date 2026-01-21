@@ -13,11 +13,7 @@ type Error struct {
 	Cause   error
 }
 
-func New(status int, code Code, message string, cause error) *Error {
-	if status < 100 || status > 599 {
-		status = http.StatusInternalServerError
-	}
-
+func newError(status int, code Code, message string, cause error) *Error {
 	if code == "" {
 		code = ErrCodeInternalServer
 	}
@@ -56,65 +52,65 @@ func (e *Error) Is(target error) bool {
 }
 
 func BadRequest(code Code, message string, cause error) *Error {
-	return New(http.StatusBadRequest, code, message, cause)
+	return newError(http.StatusBadRequest, code, message, cause)
 }
 
 func Unauthorized(code Code, message string, cause error) *Error {
-	return New(http.StatusUnauthorized, code, message, cause)
+	return newError(http.StatusUnauthorized, code, message, cause)
 }
 
 func Forbidden(code Code, message string, cause error) *Error {
-	return New(http.StatusForbidden, code, message, cause)
+	return newError(http.StatusForbidden, code, message, cause)
 }
 
 func NotFound(code Code, message string, cause error) *Error {
-	return New(http.StatusNotFound, code, message, cause)
+	return newError(http.StatusNotFound, code, message, cause)
 }
 
 func MethodNotAllowed(code Code, message string, cause error) *Error {
-	return New(http.StatusMethodNotAllowed, code, message, cause)
+	return newError(http.StatusMethodNotAllowed, code, message, cause)
 }
 
 func RequestTimeout(code Code, message string, cause error) *Error {
-	return New(http.StatusRequestTimeout, code, message, cause)
+	return newError(http.StatusRequestTimeout, code, message, cause)
 }
 
 func Conflict(code Code, message string, cause error) *Error {
-	return New(http.StatusConflict, code, message, cause)
+	return newError(http.StatusConflict, code, message, cause)
 }
 
 func PreconditionFailed(code Code, message string, cause error) *Error {
-	return New(http.StatusPreconditionFailed, code, message, cause)
+	return newError(http.StatusPreconditionFailed, code, message, cause)
 }
 
 func UnprocessableEntity(code Code, message string, cause error) *Error {
-	return New(http.StatusUnprocessableEntity, code, message, cause)
+	return newError(http.StatusUnprocessableEntity, code, message, cause)
 }
 
 func PreconditionRequired(code Code, message string, cause error) *Error {
-	return New(http.StatusPreconditionRequired, code, message, cause)
+	return newError(http.StatusPreconditionRequired, code, message, cause)
 }
 
 func TooManyRequests(code Code, message string, cause error) *Error {
-	return New(http.StatusTooManyRequests, code, message, cause)
+	return newError(http.StatusTooManyRequests, code, message, cause)
 }
 
 func InternalServerError(code Code, message string, cause error) *Error {
-	return New(http.StatusInternalServerError, code, message, cause)
+	return newError(http.StatusInternalServerError, code, message, cause)
 }
 
 func NotImplemented(code Code, message string, cause error) *Error {
-	return New(http.StatusNotImplemented, code, message, cause)
+	return newError(http.StatusNotImplemented, code, message, cause)
 }
 
 func BadGateway(code Code, message string, cause error) *Error {
-	return New(http.StatusBadGateway, code, message, cause)
+	return newError(http.StatusBadGateway, code, message, cause)
 }
 
 func ServiceUnavailable(code Code, message string, cause error) *Error {
-	return New(http.StatusServiceUnavailable, code, message, cause)
+	return newError(http.StatusServiceUnavailable, code, message, cause)
 }
 
 func GatewayTimeout(code Code, message string, cause error) *Error {
-	return New(http.StatusGatewayTimeout, code, message, cause)
+	return newError(http.StatusGatewayTimeout, code, message, cause)
 }
