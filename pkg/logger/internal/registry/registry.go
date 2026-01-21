@@ -1,4 +1,4 @@
-package provider
+package registry
 
 import (
 	"sync"
@@ -6,7 +6,7 @@ import (
 	"go-auth/pkg/logger/internal/core"
 )
 
-type Factory func(config *core.Config) (Logger, error)
+type Factory func(config *core.Config) (core.Logger, error)
 
 var (
 	mu        sync.RWMutex

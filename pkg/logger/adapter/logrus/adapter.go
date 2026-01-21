@@ -11,23 +11,23 @@ import (
 
 	"go-auth/pkg/logger/internal/core"
 	"go-auth/pkg/logger/internal/output"
-	"go-auth/pkg/logger/internal/provider"
+	"go-auth/pkg/logger/internal/registry"
 )
 
 type adapter struct {
 	loggers   []*logrus.Logger
 	dests     *output.Destination
-	caller    bool
 	extractor core.ExtractCtxFunc
+	caller    bool
 	name      string
 }
 
 //nolint:gochecknoinits
 func init() {
-	provider.Register(core.Driver("logrus"), newLogrus)
+	registry.Register(core.Driver("logrus"), newLogrus)
 }
 
-func newLogrus(config *core.Config) (provider.Logger, error) {
+func newLogrus(config *core.Config) (core.Logger, error) {
 	dests, err := output.New(config)
 	if err != nil {
 		return nil, err
@@ -52,8 +52,8 @@ func newLogrus(config *core.Config) (provider.Logger, error) {
 	return &adapter{
 		loggers:   loggers,
 		dests:     dests,
-		caller:    config.Development,
 		extractor: config.Extractor,
+		caller:    config.Development,
 	}, nil
 }
 
@@ -105,7 +105,7 @@ func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
 	a.logWithCtx(ctx, logrus.FatalLevel, msg, attrs)
 }
 
-func (a *adapter) Named(name string) provider.Logger {
+func (a *adapter) Named(name string) core.Logger {
 	newName := name
 	if a.name != "" {
 		newName = a.name + "." + name
@@ -114,8 +114,8 @@ func (a *adapter) Named(name string) provider.Logger {
 	return &adapter{
 		loggers:   a.loggers,
 		dests:     a.dests,
-		caller:    a.caller,
 		extractor: a.extractor,
+		caller:    a.caller,
 		name:      newName,
 	}
 }

@@ -10,23 +10,23 @@ import (
 
 	"go-auth/pkg/logger/internal/core"
 	"go-auth/pkg/logger/internal/output"
-	"go-auth/pkg/logger/internal/provider"
+	"go-auth/pkg/logger/internal/registry"
 )
 
 type adapter struct {
 	logger    zerolog.Logger
 	dests     *output.Destination
-	caller    bool
 	extractor core.ExtractCtxFunc
+	caller    bool
 	name      string
 }
 
 //nolint:gochecknoinits
 func init() {
-	provider.Register(core.Driver("zerolog"), newZerolog)
+	registry.Register(core.Driver("zerolog"), newZerolog)
 }
 
-func newZerolog(config *core.Config) (provider.Logger, error) {
+func newZerolog(config *core.Config) (core.Logger, error) {
 	dests, err := output.New(config)
 	if err != nil {
 		return nil, err
@@ -53,8 +53,8 @@ func newZerolog(config *core.Config) (provider.Logger, error) {
 	return &adapter{
 		logger:    zlog,
 		dests:     dests,
-		caller:    config.Development,
 		extractor: config.Extractor,
+		caller:    config.Development,
 	}, nil
 }
 
@@ -106,7 +106,7 @@ func (a *adapter) FatalCtx(ctx context.Context, msg string, attrs ...any) {
 	a.logWithCtx(ctx, zerolog.FatalLevel, msg, attrs)
 }
 
-func (a *adapter) Named(name string) provider.Logger {
+func (a *adapter) Named(name string) core.Logger {
 	newName := name
 	if a.name != "" {
 		newName = a.name + "." + name
@@ -115,8 +115,8 @@ func (a *adapter) Named(name string) provider.Logger {
 	return &adapter{
 		logger:    a.logger,
 		dests:     a.dests,
-		caller:    a.caller,
 		extractor: a.extractor,
+		caller:    a.caller,
 		name:      newName,
 	}
 }
