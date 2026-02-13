@@ -40,7 +40,7 @@ database:
   max_conns: 10
   max_idle: 5
 
-auth:
+security:
   jwt_secret: your-required-secret-key-32-chars
   access_ttl: 15m
   refresh_ttl: 48h
