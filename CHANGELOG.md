@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/mc-es/go-auth/compare/v0.5.0...v0.5.1) (2026-02-13)
+
+
+### 🐛 Bug Fixes
+
+* **config:** rename 'auth' to 'security' in configuration files for clarity and consistency ([12ae86f](https://github.com/mc-es/go-auth/commit/12ae86f451b52e81afa4c94c69aa0be8378f26ce))
+
 ## [0.5.0](https://github.com/mc-es/go-auth/compare/v0.4.0...v0.5.0) (2026-02-13)
 
 
