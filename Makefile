@@ -8,8 +8,9 @@ SHELL := /bin/bash
 	profile-cpu profile-mem profile-trace \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
+	docker-up docker-down docker-logs docker-ps docker-stats docker-shell \
 	install-lefthook \
-	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-all
+	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-docker clean-all
 
 # Colors & Formatting
 RED    := $(shell tput setaf 1 2>/dev/null || echo "")
@@ -34,7 +35,8 @@ define print_warning
 endef
 
 # Commands
-GO := go
+GO      := go
+COMPOSE := docker compose
 
 # Paths
 PROJECT_ROOT := $(shell pwd)
@@ -273,6 +275,34 @@ deps-upgrade: ## Upgrade direct dependencies
 	@$(call print_success,"Dependencies upgraded!")
 
 
+# --- Docker ---
+docker-up: ## Start Docker services (Postgres) in background
+	@$(call print_header,"Starting Docker services...")
+	@$(COMPOSE) up -d --wait
+	@$(call print_success,"Docker services started!")
+
+docker-down: ## Stop and remove Docker containers, networks
+	@$(call print_header,"Stopping Docker services...")
+	@$(COMPOSE) down --remove-orphans
+	@$(call print_success,"Docker services stopped!")
+
+docker-logs: ## Tail logs from Docker services (Use SERVICE=postgres for specific service)
+	@$(COMPOSE) logs -f $(if $(SERVICE),$(SERVICE),)
+
+docker-ps: ## List running Docker Compose services
+	@$(COMPOSE) ps
+
+docker-stats: ## Show Docker resource usage statistics
+	@$(COMPOSE) stats
+
+docker-shell: ## Open shell in Docker container (Use SERVICE=postgres for specific service)
+	@if [ -z "$(SERVICE)" ]; then \
+		$(call print_warning,Usage: make docker-shell SERVICE=<service>); \
+		exit 1; \
+	fi; \
+	$(COMPOSE) exec $(SERVICE) /bin/sh
+
+
 # --- Lefthook ---
 install-lefthook: $(LEFTHOOK) ## Install lefthook and configure them (pre-commit, commit-msg, pre-push)
 	@if [ -d ".git" ]; then \
@@ -310,4 +340,9 @@ clean-vendor: ## Remove vendor directory
 	@rm -rf vendor
 	@$(call print_success,"Vendor directory cleaned!")
 
-clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor ## Deep clean everything
+clean-docker: ## Remove Docker containers, networks, volumes, and images
+	@$(call print_header,"Cleaning Docker...")
+	@$(COMPOSE) down --volumes --remove-orphans --rmi all
+	@$(call print_success,"Docker cleaned!")
+
+clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor ## Deep clean everything (excludes Docker)

@@ -43,7 +43,7 @@ func validMinimalConfig() *config.Config {
 			MaxConns: 10,
 			MaxIdle:  5,
 		},
-		Auth: config.Auth{
+		Security: config.Security{
 			JWTSecret:  "01234567890123456789012345678901",
 			AccessTTL:  15 * time.Minute,
 			RefreshTTL: 48 * time.Hour,
@@ -149,7 +149,7 @@ func TestJWTKey(t *testing.T) {
 
 	cfg := validMinimalConfig()
 	secret := "01234567890123456789012345678901"
-	cfg.Auth.JWTSecret = secret
+	cfg.Security.JWTSecret = secret
 	got := cfg.JWTKey()
 	assert.Equal(t, []byte(secret), got)
 	assert.Len(t, got, 32)

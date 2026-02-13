@@ -1,6 +1,28 @@
 services:
-  app:
-    image: ghcr.io/mc-es/go-auth:latest
-    env_file:
-      - .env
-    restart: no
+  postgres:
+    image: postgres:16-alpine
+    container_name: go-auth-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${GO_AUTH_DATABASE_USER}
+      POSTGRES_PASSWORD: ${GO_AUTH_DATABASE_PASSWORD}
+      POSTGRES_DB: ${GO_AUTH_DATABASE_NAME}
+    ports:
+      - "${GO_AUTH_DATABASE_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - go-auth-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:
+
+networks:
+  go-auth-net:
+    driver: bridge

@@ -39,7 +39,7 @@ database:
   ssl_mode: disable
   max_conns: 10
   max_idle: 5
-auth:
+security:
   jwt_secret: 12345678901234567890123456789012
   access_ttl: 15m
   refresh_ttl: 24h
