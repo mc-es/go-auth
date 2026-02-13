@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/mc-es/go-auth/compare/v0.4.0...v0.5.0) (2026-02-13)
+
+
+### ✨ Features
+
+* **docker:** add PostgreSQL service with configuration for user, password, database, healthcheck, and networking ([6145afd](https://github.com/mc-es/go-auth/commit/6145afd954e68336c1b49c95402269b26718e1dd))
+
 ## [0.4.0](https://github.com/mc-es/go-auth/compare/v0.3.1...v0.4.0) (2026-01-21)
 
 
