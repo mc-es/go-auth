@@ -15,7 +15,7 @@ type Config struct {
 	CORS      CORS      `mapstructure:"cors"`
 	RateLimit RateLimit `mapstructure:"rate_limit"`
 	Database  Database  `mapstructure:"database"`
-	Auth      Auth      `mapstructure:"auth"`
+	Security  Security  `mapstructure:"security"`
 	SMTP      SMTP      `mapstructure:"smtp"`
 	Logger    Logger    `mapstructure:"logger"`
 }
@@ -57,7 +57,7 @@ type Database struct {
 	MaxIdle  int    `mapstructure:"max_idle"  validate:"required,min=1,max=50,ltefield=MaxConns"`
 }
 
-type Auth struct {
+type Security struct {
 	JWTSecret  string        `mapstructure:"jwt_secret"  validate:"required,min=32,max=512"`
 	AccessTTL  time.Duration `mapstructure:"access_ttl"  validate:"required,min=5m,max=1h"`
 	RefreshTTL time.Duration `mapstructure:"refresh_ttl" validate:"required,min=1h,max=168h,gtfield=AccessTTL"`
@@ -121,7 +121,7 @@ func (c *Config) DatabaseURL() string {
 }
 
 func (c *Config) JWTKey() []byte {
-	return []byte(c.Auth.JWTSecret)
+	return []byte(c.Security.JWTSecret)
 }
 
 func (c *Config) IsProduction() bool {
