@@ -36,6 +36,10 @@ define print_warning
 	echo "$(YELLOW)⚠ $(1)$(RESET)"
 endef
 
+define print_error
+	echo "$(RED)✘ $(1)$(RESET)"
+endef
+
 # Commands
 GO      := go
 COMPOSE := docker compose
@@ -213,7 +217,7 @@ test-coverage: | $(COVERAGE_DIR) ## Generate coverage report (Same opts as 'test
 # --- Profiling ---
 profile-cpu: $(PPROF) | $(TMP_DIR) ## Generate CPU profile (Use TEST_PKG=./path, TEST_BENCH="Func/CaseName", TEST_COUNT=10)
 	@if [ "$(TEST_PKG)" = "./..." ]; then \
-		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		$(call print_error,"Please specify a single package. Example: TEST_PKG=./path/to/pkg"); \
 		exit 1; \
 	fi
 	@$(call print_header,"Generating CPU profile...")
@@ -228,7 +232,7 @@ profile-cpu: $(PPROF) | $(TMP_DIR) ## Generate CPU profile (Use TEST_PKG=./path,
 
 profile-mem: $(PPROF) | $(TMP_DIR) ## Generate Memory profile (Same opts as 'profile-cpu')
 	@if [ "$(TEST_PKG)" = "./..." ]; then \
-		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		$(call print_error,"Please specify a single package. Example: TEST_PKG=./path/to/pkg"); \
 		exit 1; \
 	fi
 	@$(call print_header,"Generating Memory profile...")
@@ -243,7 +247,7 @@ profile-mem: $(PPROF) | $(TMP_DIR) ## Generate Memory profile (Same opts as 'pro
 
 profile-trace: | $(TMP_DIR) ## Generate execution trace (Same opts as 'profile-cpu')
 	@if [ "$(TEST_PKG)" = "./..." ]; then \
-		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		$(call print_error,"Please specify a single package. Example: TEST_PKG=./path/to/pkg"); \
 		exit 1; \
 	fi
 	@$(call print_header,"Generating execution trace...")
@@ -294,48 +298,29 @@ deps-upgrade: ## Upgrade direct dependencies
 
 # --- Migrations ---
 migrate-create: $(MIGRATE) ## Create a new migration (Use NAME=my_migration)
-	@if [ -z "$(NAME)" ]; then \
-		$(call print_warning,"Usage: make migrate-create NAME=create_users_table"); \
-		exit 1; \
-	fi
+	@test -n "$(NAME)" || ($(call print_error,"Usage: make migrate-create NAME=description") && exit 1)
 	@$(call print_header,"Creating migration: $(NAME)")
 	@"$(MIGRATE)" create -ext sql -dir "$(MIGRATIONS_DIR)" -seq "$(NAME)"
 	@$(call print_success,"Migration files created in $(MIGRATIONS_DIR)!")
 
-migrate-up: $(MIGRATE) ## Apply all pending migrations (uses .env or DATABASE_URL)
+migrate-up: $(MIGRATE) ## Apply all pending migrations
 	@$(call print_header,"Running migrations up...")
-	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
-		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
-		exit 1; \
-	fi
 	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" up
 	@$(call print_success,"Migrations applied!")
 
 migrate-down: $(MIGRATE) ## Rollback migrations (Use N=1 for number of steps, default 1)
 	@$(call print_header,"Running migrations down - N=$(or $(N),1)")
-	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
-		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
-		exit 1; \
-	fi
 	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" down $(or $(N),1)
 	@$(call print_success,"Migrations rolled back!")
 
-migrate-status: $(MIGRATE) ## Show current migration version and dirty state
+migrate-status: $(MIGRATE) ## Show migration version
 	@$(call print_header,"Migration status")
-	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
-		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
-		exit 1; \
-	fi
 	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" version
 
-migrate-drop: $(MIGRATE) ## Drop all tables and schema_migrations (destructive; use FORCE=1 to confirm)
-	@$(call print_header,"Drop all migrations - destructive")
-	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
-		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
-		exit 1; \
-	fi
+migrate-drop: $(MIGRATE) ## Drop all tables (use FORCE=1 to confirm)
+	@$(call print_header,"Drop all tables")
 	@if [ "$(FORCE)" != "1" ]; then \
-		echo "$(YELLOW)This will drop all tables. Set FORCE=1 to proceed.$(RESET)"; \
+		$(call print_warning,This will drop all tables. Set FORCE=1 to proceed.); \
 		exit 1; \
 	fi
 	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" drop
