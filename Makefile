@@ -1,6 +1,7 @@
-SHELL := /bin/bash
+SHELL       := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 
+# Phony targets
 .PHONY: \
 	help \
 	build run dev \
@@ -8,9 +9,10 @@ SHELL := /bin/bash
 	profile-cpu profile-mem profile-trace \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
+	migrate-create migrate-up migrate-down migrate-status migrate-drop \
 	docker-up docker-down docker-logs docker-ps docker-stats docker-shell \
 	install-lefthook \
-	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-docker clean-all
+	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-migrations clean-docker clean-all
 
 # Colors & Formatting
 RED    := $(shell tput setaf 1 2>/dev/null || echo "")
@@ -39,11 +41,12 @@ GO      := go
 COMPOSE := docker compose
 
 # Paths
-PROJECT_ROOT := $(shell pwd)
-COVERAGE_DIR := $(PROJECT_ROOT)/coverage
-TMP_DIR      := $(PROJECT_ROOT)/tmp
-BIN_DIR      := $(PROJECT_ROOT)/bin
-TOOLS_DIR    := $(BIN_DIR)/tools
+PROJECT_ROOT   := $(shell pwd)
+COVERAGE_DIR   := $(PROJECT_ROOT)/coverage
+TMP_DIR        := $(PROJECT_ROOT)/tmp
+BIN_DIR        := $(PROJECT_ROOT)/bin
+TOOLS_DIR      := $(BIN_DIR)/tools
+MIGRATIONS_DIR := $(PROJECT_ROOT)/migrations
 
 # App
 APP_NAME     := app
@@ -57,6 +60,7 @@ LEFTHOOK_VERSION  := v2.0.13
 GOTESTSUM_VERSION := v1.13.0
 BENCHSTAT_VERSION := latest
 PPROF_VERSION     := latest
+MIGRATE_VERSION   := v4.19.1
 
 # Tool Binaries
 LINT      := $(TOOLS_DIR)/golangci-lint
@@ -66,6 +70,14 @@ LEFTHOOK  := $(TOOLS_DIR)/lefthook
 GOTESTSUM := $(TOOLS_DIR)/gotestsum
 BENCHSTAT := $(TOOLS_DIR)/benchstat
 PPROF     := $(TOOLS_DIR)/pprof
+MIGRATE   := $(TOOLS_DIR)/migrate
+
+# Environment file
+-include .env
+export
+
+# Database URL for migrations
+DATABASE_URL ?= postgres://$(GO_AUTH_DATABASE_USER):$(GO_AUTH_DATABASE_PASSWORD)@$(GO_AUTH_DATABASE_HOST):$(GO_AUTH_DATABASE_PORT)/$(GO_AUTH_DATABASE_NAME)?sslmode=$(GO_AUTH_DATABASE_SSL_MODE)
 
 # Test Variables
 TEST_PKG   ?= ./...
@@ -122,6 +134,11 @@ $(PPROF): | $(TOOLS_DIR)
 	@$(call print_header,"Installing pprof@$(PPROF_VERSION)...")
 	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/google/pprof@$(PPROF_VERSION)
 	@$(call print_success,"pprof installed successfully!")
+
+$(MIGRATE): | $(TOOLS_DIR)
+	@$(call print_header,"Installing migrate@$(MIGRATE_VERSION)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@$(MIGRATE_VERSION)
+	@$(call print_success,"migrate installed successfully!")
 
 # --- Help ---
 help: ## Show this help message
@@ -275,6 +292,56 @@ deps-upgrade: ## Upgrade direct dependencies
 	@$(call print_success,"Dependencies upgraded!")
 
 
+# --- Migrations ---
+migrate-create: $(MIGRATE) ## Create a new migration (Use NAME=my_migration)
+	@if [ -z "$(NAME)" ]; then \
+		$(call print_warning,"Usage: make migrate-create NAME=create_users_table"); \
+		exit 1; \
+	fi
+	@$(call print_header,"Creating migration: $(NAME)")
+	@"$(MIGRATE)" create -ext sql -dir "$(MIGRATIONS_DIR)" -seq "$(NAME)"
+	@$(call print_success,"Migration files created in $(MIGRATIONS_DIR)!")
+
+migrate-up: $(MIGRATE) ## Apply all pending migrations (uses .env or DATABASE_URL)
+	@$(call print_header,"Running migrations up...")
+	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
+		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
+		exit 1; \
+	fi
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" up
+	@$(call print_success,"Migrations applied!")
+
+migrate-down: $(MIGRATE) ## Rollback migrations (Use N=1 for number of steps, default 1)
+	@$(call print_header,"Running migrations down - N=$(or $(N),1)")
+	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
+		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
+		exit 1; \
+	fi
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" down $(or $(N),1)
+	@$(call print_success,"Migrations rolled back!")
+
+migrate-status: $(MIGRATE) ## Show current migration version and dirty state
+	@$(call print_header,"Migration status")
+	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
+		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
+		exit 1; \
+	fi
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" version
+
+migrate-drop: $(MIGRATE) ## Drop all tables and schema_migrations (destructive; use FORCE=1 to confirm)
+	@$(call print_header,"Drop all migrations - destructive")
+	@if [ -z "$(GO_AUTH_DATABASE_USER)$(DATABASE_URL)" ]; then \
+		echo "$(RED)✘ Set DATABASE_URL or GO_AUTH_* in .env$(RESET)"; \
+		exit 1; \
+	fi
+	@if [ "$(FORCE)" != "1" ]; then \
+		echo "$(YELLOW)This will drop all tables. Set FORCE=1 to proceed.$(RESET)"; \
+		exit 1; \
+	fi
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" drop
+	@$(call print_success,"Database schema dropped!")
+
+
 # --- Docker ---
 docker-up: ## Start Docker services (Postgres) in background
 	@$(call print_header,"Starting Docker services...")
@@ -340,9 +407,14 @@ clean-vendor: ## Remove vendor directory
 	@rm -rf vendor
 	@$(call print_success,"Vendor directory cleaned!")
 
+clean-migrations: ## Remove migrations directory
+	@$(call print_header,"Cleaning migrations directory...")
+	@rm -rf "$(MIGRATIONS_DIR)"
+	@$(call print_success,"Migrations directory cleaned!")
+
 clean-docker: ## Remove Docker containers, networks, volumes, and images
 	@$(call print_header,"Cleaning Docker...")
 	@$(COMPOSE) down --volumes --remove-orphans --rmi all
 	@$(call print_success,"Docker cleaned!")
 
-clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor ## Deep clean everything (excludes Docker)
+clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-migrations clean-docker ## Deep clean everything
