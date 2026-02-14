@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/mc-es/go-auth/compare/v0.5.1...v0.6.0) (2026-02-14)
+
+
+### ✨ Features
+
+* **makefile:** add migration commands and update Makefile structure for improved database management ([f4cf96e](https://github.com/mc-es/go-auth/commit/f4cf96e25a76e92fe07bd03e8997fd70b32b8b78))
+* **migrations:** add initial migration files for users, sessions, and tokens tables with update triggers ([b1fc5ef](https://github.com/mc-es/go-auth/commit/b1fc5ef4896c314b1bd43e5e2317345add78e443))
+
 ## [0.5.1](https://github.com/mc-es/go-auth/compare/v0.5.0...v0.5.1) (2026-02-13)
 
 
