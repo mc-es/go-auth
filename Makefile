@@ -60,8 +60,8 @@ APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
 # Tool Versions
 LINT_VERSION      := v2.7.2
 VULN_VERSION      := v1.1.4
-AIR_VERSION       := v1.63.4
-LEFTHOOK_VERSION  := v2.0.13
+AIR_VERSION       := v1.64.5
+LEFTHOOK_VERSION  := v2.1.1
 GOTESTSUM_VERSION := v1.13.0
 BENCHSTAT_VERSION := latest
 PPROF_VERSION     := latest
@@ -104,45 +104,29 @@ $(BIN_DIR) $(TOOLS_DIR) $(COVERAGE_DIR) $(TMP_DIR):
 	@mkdir -p $@
 
 # Tools Installation
+define install_go_tool
+$(TOOLS_DIR)/$(1): | $(TOOLS_DIR)
+	@$(call print_header,"Installing $(1)@$(3)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install $(2)@$(3)
+endef
+
+define install_go_tool_tags
+$(TOOLS_DIR)/$(1): | $(TOOLS_DIR)
+	@$(call print_header,"Installing $(1)@$(4)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install -tags '$(2)' $(3)@$(4)
+endef
+
 $(LINT): | $(TOOLS_DIR)
 	@$(call print_header,"Installing golangci-lint@$(LINT_VERSION)...")
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(TOOLS_DIR)" $(LINT_VERSION)
-	@$(call print_success,"golangci-lint installed successfully!")
+	@curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b "$(TOOLS_DIR)" $(LINT_VERSION)
 
-$(VULN): | $(TOOLS_DIR)
-	@$(call print_header,"Installing govulncheck@$(VULN_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/vuln/cmd/govulncheck@$(VULN_VERSION)
-	@$(call print_success,"govulncheck installed successfully!")
-
-$(AIR): | $(TOOLS_DIR)
-	@$(call print_header,"Installing air@$(AIR_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/air-verse/air@$(AIR_VERSION)
-	@$(call print_success,"air installed successfully!")
-
-$(LEFTHOOK): | $(TOOLS_DIR)
-	@$(call print_header,"Installing lefthook@$(LEFTHOOK_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/evilmartians/lefthook/v2@$(LEFTHOOK_VERSION)
-	@$(call print_success,"lefthook installed successfully!")
-
-$(GOTESTSUM): | $(TOOLS_DIR)
-	@$(call print_header,"Installing gotestsum@$(GOTESTSUM_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
-	@$(call print_success,"gotestsum installed successfully!")
-
-$(BENCHSTAT): | $(TOOLS_DIR)
-	@$(call print_header,"Installing benchstat@$(BENCHSTAT_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/perf/cmd/benchstat@$(BENCHSTAT_VERSION)
-	@$(call print_success,"benchstat installed successfully!")
-
-$(PPROF): | $(TOOLS_DIR)
-	@$(call print_header,"Installing pprof@$(PPROF_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/google/pprof@$(PPROF_VERSION)
-	@$(call print_success,"pprof installed successfully!")
-
-$(MIGRATE): | $(TOOLS_DIR)
-	@$(call print_header,"Installing migrate@$(MIGRATE_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@$(MIGRATE_VERSION)
-	@$(call print_success,"migrate installed successfully!")
+$(eval $(call install_go_tool,govulncheck,golang.org/x/vuln/cmd/govulncheck,$(VULN_VERSION)))
+$(eval $(call install_go_tool,air,github.com/air-verse/air,$(AIR_VERSION)))
+$(eval $(call install_go_tool,lefthook,github.com/evilmartians/lefthook/v2,$(LEFTHOOK_VERSION)))
+$(eval $(call install_go_tool,gotestsum,gotest.tools/gotestsum,$(GOTESTSUM_VERSION)))
+$(eval $(call install_go_tool,benchstat,golang.org/x/perf/cmd/benchstat,$(BENCHSTAT_VERSION)))
+$(eval $(call install_go_tool,pprof,github.com/google/pprof,$(PPROF_VERSION)))
+$(eval $(call install_go_tool_tags,migrate,postgres,github.com/golang-migrate/migrate/v4/cmd/migrate,$(MIGRATE_VERSION)))
 
 # --- Help ---
 help: ## Show this help message
