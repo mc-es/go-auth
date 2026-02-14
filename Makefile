@@ -4,6 +4,7 @@ SHELL       := /bin/bash
 # Phony targets
 .PHONY: \
 	help \
+	set-env \
 	build run dev \
 	test test-watch test-bench test-coverage \
 	profile-cpu profile-mem profile-trace \
@@ -156,6 +157,16 @@ help: ## Show this help message
 		/^[a-zA-Z0-9_-]+:.*?## / { \
 			printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2 \
 		}' $(MAKEFILE_LIST)
+
+
+# --- Set Environment ---
+set-env: ## Create .env file from example
+	@if [ -f .env ]; then \
+		$(call print_warning,.env already exists, skipping); \
+	else \
+		cp .env.example .env; \
+		$(call print_success,.env file created from .env.example); \
+	fi
 
 
 # --- Build & Run ---
