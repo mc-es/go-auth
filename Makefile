@@ -1,13 +1,16 @@
-SHELL := /bin/bash
+SHELL       := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 
+# Phony targets
 .PHONY: \
 	help \
+	set-env \
 	build run dev \
 	test test-watch test-bench test-coverage \
 	profile-cpu profile-mem profile-trace \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
+	migrate-create migrate-up migrate-down migrate-status migrate-drop \
 	docker-up docker-down docker-logs docker-ps docker-stats docker-shell \
 	install-lefthook \
 	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-docker clean-all
@@ -34,16 +37,21 @@ define print_warning
 	echo "$(YELLOW)⚠ $(1)$(RESET)"
 endef
 
+define print_error
+	echo "$(RED)✘ $(1)$(RESET)"
+endef
+
 # Commands
 GO      := go
 COMPOSE := docker compose
 
 # Paths
-PROJECT_ROOT := $(shell pwd)
-COVERAGE_DIR := $(PROJECT_ROOT)/coverage
-TMP_DIR      := $(PROJECT_ROOT)/tmp
-BIN_DIR      := $(PROJECT_ROOT)/bin
-TOOLS_DIR    := $(BIN_DIR)/tools
+PROJECT_ROOT   := $(shell pwd)
+COVERAGE_DIR   := $(PROJECT_ROOT)/coverage
+TMP_DIR        := $(PROJECT_ROOT)/tmp
+BIN_DIR        := $(PROJECT_ROOT)/bin
+TOOLS_DIR      := $(BIN_DIR)/tools
+MIGRATIONS_DIR := $(PROJECT_ROOT)/migrations
 
 # App
 APP_NAME     := app
@@ -52,11 +60,12 @@ APP_BINARY   := $(BIN_DIR)/$(APP_NAME)
 # Tool Versions
 LINT_VERSION      := v2.7.2
 VULN_VERSION      := v1.1.4
-AIR_VERSION       := v1.63.4
-LEFTHOOK_VERSION  := v2.0.13
+AIR_VERSION       := v1.64.5
+LEFTHOOK_VERSION  := v2.1.1
 GOTESTSUM_VERSION := v1.13.0
 BENCHSTAT_VERSION := latest
 PPROF_VERSION     := latest
+MIGRATE_VERSION   := v4.19.1
 
 # Tool Binaries
 LINT      := $(TOOLS_DIR)/golangci-lint
@@ -66,6 +75,13 @@ LEFTHOOK  := $(TOOLS_DIR)/lefthook
 GOTESTSUM := $(TOOLS_DIR)/gotestsum
 BENCHSTAT := $(TOOLS_DIR)/benchstat
 PPROF     := $(TOOLS_DIR)/pprof
+MIGRATE   := $(TOOLS_DIR)/migrate
+
+# Environment file
+-include .env
+
+# Database URL for migrations
+DATABASE_URL ?= postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)?sslmode=$(DATABASE_SSLMODE)
 
 # Test Variables
 TEST_PKG   ?= ./...
@@ -88,40 +104,29 @@ $(BIN_DIR) $(TOOLS_DIR) $(COVERAGE_DIR) $(TMP_DIR):
 	@mkdir -p $@
 
 # Tools Installation
+define install_go_tool
+$(TOOLS_DIR)/$(1): | $(TOOLS_DIR)
+	@$(call print_header,"Installing $(1)@$(3)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install $(2)@$(3)
+endef
+
+define install_go_tool_tags
+$(TOOLS_DIR)/$(1): | $(TOOLS_DIR)
+	@$(call print_header,"Installing $(1)@$(4)...")
+	@GOBIN="$(TOOLS_DIR)" $(GO) install -tags '$(2)' $(3)@$(4)
+endef
+
 $(LINT): | $(TOOLS_DIR)
 	@$(call print_header,"Installing golangci-lint@$(LINT_VERSION)...")
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(TOOLS_DIR)" $(LINT_VERSION)
-	@$(call print_success,"golangci-lint installed successfully!")
+	@curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b "$(TOOLS_DIR)" $(LINT_VERSION)
 
-$(VULN): | $(TOOLS_DIR)
-	@$(call print_header,"Installing govulncheck@$(VULN_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/vuln/cmd/govulncheck@$(VULN_VERSION)
-	@$(call print_success,"govulncheck installed successfully!")
-
-$(AIR): | $(TOOLS_DIR)
-	@$(call print_header,"Installing air@$(AIR_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/air-verse/air@$(AIR_VERSION)
-	@$(call print_success,"air installed successfully!")
-
-$(LEFTHOOK): | $(TOOLS_DIR)
-	@$(call print_header,"Installing lefthook@$(LEFTHOOK_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/evilmartians/lefthook/v2@$(LEFTHOOK_VERSION)
-	@$(call print_success,"lefthook installed successfully!")
-
-$(GOTESTSUM): | $(TOOLS_DIR)
-	@$(call print_header,"Installing gotestsum@$(GOTESTSUM_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
-	@$(call print_success,"gotestsum installed successfully!")
-
-$(BENCHSTAT): | $(TOOLS_DIR)
-	@$(call print_header,"Installing benchstat@$(BENCHSTAT_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install golang.org/x/perf/cmd/benchstat@$(BENCHSTAT_VERSION)
-	@$(call print_success,"benchstat installed successfully!")
-
-$(PPROF): | $(TOOLS_DIR)
-	@$(call print_header,"Installing pprof@$(PPROF_VERSION)...")
-	@GOBIN="$(TOOLS_DIR)" $(GO) install github.com/google/pprof@$(PPROF_VERSION)
-	@$(call print_success,"pprof installed successfully!")
+$(eval $(call install_go_tool,govulncheck,golang.org/x/vuln/cmd/govulncheck,$(VULN_VERSION)))
+$(eval $(call install_go_tool,air,github.com/air-verse/air,$(AIR_VERSION)))
+$(eval $(call install_go_tool,lefthook,github.com/evilmartians/lefthook/v2,$(LEFTHOOK_VERSION)))
+$(eval $(call install_go_tool,gotestsum,gotest.tools/gotestsum,$(GOTESTSUM_VERSION)))
+$(eval $(call install_go_tool,benchstat,golang.org/x/perf/cmd/benchstat,$(BENCHSTAT_VERSION)))
+$(eval $(call install_go_tool,pprof,github.com/google/pprof,$(PPROF_VERSION)))
+$(eval $(call install_go_tool_tags,migrate,postgres,github.com/golang-migrate/migrate/v4/cmd/migrate,$(MIGRATE_VERSION)))
 
 # --- Help ---
 help: ## Show this help message
@@ -135,6 +140,16 @@ help: ## Show this help message
 		/^[a-zA-Z0-9_-]+:.*?## / { \
 			printf "  $(CYAN)%-20s$(RESET) %s\n", $$1, $$2 \
 		}' $(MAKEFILE_LIST)
+
+
+# --- Set Environment ---
+set-env: ## Create .env file from example
+	@if [ -f .env ]; then \
+		$(call print_warning,.env already exists, skipping); \
+	else \
+		cp .env.example .env; \
+		$(call print_success,.env file created from .env.example); \
+	fi
 
 
 # --- Build & Run ---
@@ -196,7 +211,7 @@ test-coverage: | $(COVERAGE_DIR) ## Generate coverage report (Same opts as 'test
 # --- Profiling ---
 profile-cpu: $(PPROF) | $(TMP_DIR) ## Generate CPU profile (Use TEST_PKG=./path, TEST_BENCH="Func/CaseName", TEST_COUNT=10)
 	@if [ "$(TEST_PKG)" = "./..." ]; then \
-		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		$(call print_error,"Please specify a single package. Example: TEST_PKG=./path/to/pkg"); \
 		exit 1; \
 	fi
 	@$(call print_header,"Generating CPU profile...")
@@ -211,7 +226,7 @@ profile-cpu: $(PPROF) | $(TMP_DIR) ## Generate CPU profile (Use TEST_PKG=./path,
 
 profile-mem: $(PPROF) | $(TMP_DIR) ## Generate Memory profile (Same opts as 'profile-cpu')
 	@if [ "$(TEST_PKG)" = "./..." ]; then \
-		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		$(call print_error,"Please specify a single package. Example: TEST_PKG=./path/to/pkg"); \
 		exit 1; \
 	fi
 	@$(call print_header,"Generating Memory profile...")
@@ -226,7 +241,7 @@ profile-mem: $(PPROF) | $(TMP_DIR) ## Generate Memory profile (Same opts as 'pro
 
 profile-trace: | $(TMP_DIR) ## Generate execution trace (Same opts as 'profile-cpu')
 	@if [ "$(TEST_PKG)" = "./..." ]; then \
-		echo "$(RED)✘ Please specify a single package (e.g. TEST_PKG=./path/to/pkg)$(RESET)"; \
+		$(call print_error,"Please specify a single package. Example: TEST_PKG=./path/to/pkg"); \
 		exit 1; \
 	fi
 	@$(call print_header,"Generating execution trace...")
@@ -273,6 +288,33 @@ deps-vendor: ## Create vendor directory
 deps-upgrade: ## Upgrade direct dependencies
 	@$(GO) get -u ./... && $(GO) mod tidy
 	@$(call print_success,"Dependencies upgraded!")
+
+
+# --- Migrations ---
+migrate-create: $(MIGRATE) ## Create a new migration (Use NAME=my_migration)
+	@test -n "$(NAME)" || ($(call print_error,"Usage: make migrate-create NAME=description") && exit 1)
+	@$(call print_header,"Creating migration: $(NAME)")
+	@"$(MIGRATE)" create -ext sql -dir "$(MIGRATIONS_DIR)" -seq "$(NAME)"
+	@$(call print_success,"Migration files created in $(MIGRATIONS_DIR)!")
+
+migrate-up: $(MIGRATE) ## Apply all pending migrations
+	@$(call print_header,"Running migrations up...")
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" up
+	@$(call print_success,"Migrations applied!")
+
+migrate-down: $(MIGRATE) ## Rollback migrations (Use N=1 for number of steps, default 1)
+	@$(call print_header,"Running migrations down - N=$(or $(N),1)")
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" down $(or $(N),1)
+	@$(call print_success,"Migrations rolled back!")
+
+migrate-status: $(MIGRATE) ## Show migration version
+	@$(call print_header,"Migration status")
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" version
+
+migrate-drop: $(MIGRATE) ## Drop all tables
+	@$(call print_header,"Dropping all tables...")
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" drop -f
+	@$(call print_success,"Tables dropped!")
 
 
 # --- Docker ---
@@ -345,4 +387,4 @@ clean-docker: ## Remove Docker containers, networks, volumes, and images
 	@$(COMPOSE) down --volumes --remove-orphans --rmi all
 	@$(call print_success,"Docker cleaned!")
 
-clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor ## Deep clean everything (excludes Docker)
+clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-docker ## Deep clean everything

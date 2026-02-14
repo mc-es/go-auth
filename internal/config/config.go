@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"net"
 	"net/url"
 	"strconv"
@@ -47,14 +46,15 @@ type RateLimit struct {
 }
 
 type Database struct {
-	Name     string `mapstructure:"name"      validate:"required,min=3,max=100"`
-	Host     string `mapstructure:"host"      validate:"required,hostname|ip"`
-	Port     uint16 `mapstructure:"port"      validate:"required,port"`
-	User     string `mapstructure:"user"      validate:"required"`
-	Password string `mapstructure:"password"  validate:"required"`
-	SSLMode  string `mapstructure:"ssl_mode"  validate:"required,oneof=disable require verify-ca verify-full"`
-	MaxConns int    `mapstructure:"max_conns" validate:"required,min=1,max=100"`
-	MaxIdle  int    `mapstructure:"max_idle"  validate:"required,min=1,max=50,ltefield=MaxConns"`
+	Name            string        `mapstructure:"name"              validate:"required,min=3,max=100"`
+	Host            string        `mapstructure:"host"              validate:"required,hostname|ip"`
+	Port            uint16        `mapstructure:"port"              validate:"required,port"`
+	User            string        `mapstructure:"user"              validate:"required"`
+	Password        string        `mapstructure:"password"          validate:"required"`
+	SSLMode         string        `mapstructure:"sslmode"           validate:"required,oneof=disable require prefer"`
+	MaxOpenConns    int           `mapstructure:"max_open_conns"    validate:"required,min=1,max=100"`
+	MaxIdleConns    int           `mapstructure:"max_idle_conns"    validate:"required,min=1,max=50,ltefield=MaxOpenConns"`
+	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime" validate:"required,min=1m,max=1h"`
 }
 
 type Security struct {
@@ -96,13 +96,6 @@ func (c *Config) ServerAddr() string {
 
 func (c *Config) SMTPAddr() string {
 	return net.JoinHostPort(c.SMTP.Host, strconv.Itoa(int(c.SMTP.Port)))
-}
-
-func (c *Config) DSN() string {
-	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		c.Database.Host, c.Database.Port, c.Database.User, c.Database.Password, c.Database.Name, c.Database.SSLMode,
-	)
 }
 
 func (c *Config) DatabaseURL() string {
