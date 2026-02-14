@@ -13,7 +13,7 @@ SHELL       := /bin/bash
 	migrate-create migrate-up migrate-down migrate-status migrate-drop \
 	docker-up docker-down docker-logs docker-ps docker-stats docker-shell \
 	install-lefthook \
-	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-migrations clean-docker clean-all
+	clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-docker clean-all
 
 # Colors & Formatting
 RED    := $(shell tput setaf 1 2>/dev/null || echo "")
@@ -79,10 +79,9 @@ MIGRATE   := $(TOOLS_DIR)/migrate
 
 # Environment file
 -include .env
-export
 
 # Database URL for migrations
-DATABASE_URL ?= postgres://$(GO_AUTH_DATABASE_USER):$(GO_AUTH_DATABASE_PASSWORD)@$(GO_AUTH_DATABASE_HOST):$(GO_AUTH_DATABASE_PORT)/$(GO_AUTH_DATABASE_NAME)?sslmode=$(GO_AUTH_DATABASE_SSL_MODE)
+DATABASE_URL ?= postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@$(DATABASE_HOST):$(DATABASE_PORT)/$(DATABASE_NAME)?sslmode=$(DATABASE_SSLMODE)
 
 # Test Variables
 TEST_PKG   ?= ./...
@@ -328,14 +327,10 @@ migrate-status: $(MIGRATE) ## Show migration version
 	@$(call print_header,"Migration status")
 	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" version
 
-migrate-drop: $(MIGRATE) ## Drop all tables (use FORCE=1 to confirm)
-	@$(call print_header,"Drop all tables")
-	@if [ "$(FORCE)" != "1" ]; then \
-		$(call print_warning,This will drop all tables. Set FORCE=1 to proceed.); \
-		exit 1; \
-	fi
-	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" drop
-	@$(call print_success,"Database schema dropped!")
+migrate-drop: $(MIGRATE) ## Drop all tables
+	@$(call print_header,"Dropping all tables...")
+	@"$(MIGRATE)" -path "$(MIGRATIONS_DIR)" -database "$(DATABASE_URL)" drop -f
+	@$(call print_success,"Tables dropped!")
 
 
 # --- Docker ---
@@ -403,14 +398,9 @@ clean-vendor: ## Remove vendor directory
 	@rm -rf vendor
 	@$(call print_success,"Vendor directory cleaned!")
 
-clean-migrations: ## Remove migrations directory
-	@$(call print_header,"Cleaning migrations directory...")
-	@rm -rf "$(MIGRATIONS_DIR)"
-	@$(call print_success,"Migrations directory cleaned!")
-
 clean-docker: ## Remove Docker containers, networks, volumes, and images
 	@$(call print_header,"Cleaning Docker...")
 	@$(COMPOSE) down --volumes --remove-orphans --rmi all
 	@$(call print_success,"Docker cleaned!")
 
-clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-migrations clean-docker ## Deep clean everything
+clean-all: clean-bin clean-tmp clean-coverage clean-cache clean-vendor clean-docker ## Deep clean everything

@@ -20,7 +20,7 @@ const (
 	filePath  = "."
 	fileName  = ".app-config"
 	fileType  = "yaml"
-	envPrefix = "GO_AUTH"
+	envPrefix = ""
 )
 
 var (
@@ -28,7 +28,23 @@ var (
 	ErrConfigRead       = errors.New("config: read error")
 	ErrConfigUnmarshal  = errors.New("config: unmarshal error")
 	ErrConfigValidation = errors.New("config: validation error")
+	ErrSensitiveConfig  = errors.New("config: sensitive keys found in yaml file, use env vars instead")
 )
+
+var forbiddenFileKeys = []string{
+	"database.name",
+	"database.host",
+	"database.port",
+	"database.user",
+	"database.password",
+	"database.sslmode",
+	"security.jwt_secret",
+	"smtp.host",
+	"smtp.port",
+	"smtp.username",
+	"smtp.password",
+	"smtp.from",
+}
 
 func NewLoader() *Loader {
 	vip := viper.New()
@@ -40,6 +56,10 @@ func NewLoader() *Loader {
 	vip.SetEnvPrefix(envPrefix)
 	vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	vip.AutomaticEnv()
+
+	for _, key := range forbiddenFileKeys {
+		_ = vip.BindEnv(key)
+	}
 
 	return &Loader{
 		vip: vip,
@@ -61,6 +81,10 @@ func (l *Loader) Load(envFile string) (*Config, error) {
 		return nil, wrapError(ErrConfigRead, err)
 	}
 
+	if err := l.ensureNoSensitiveKeysInFile(); err != nil {
+		return nil, err
+	}
+
 	return l.process()
 }
 
@@ -69,7 +93,21 @@ func (l *Loader) LoadFromReader(r io.Reader) (*Config, error) {
 		return nil, wrapError(ErrConfigRead, err)
 	}
 
+	if err := l.ensureNoSensitiveKeysInFile(); err != nil {
+		return nil, err
+	}
+
 	return l.process()
+}
+
+func (l *Loader) ensureNoSensitiveKeysInFile() error {
+	for _, key := range forbiddenFileKeys {
+		if l.vip.InConfig(key) {
+			return fmt.Errorf("%w: key '%s' is not allowed in %s.%s", ErrSensitiveConfig, key, fileName, fileType)
+		}
+	}
+
+	return nil
 }
 
 func (l *Loader) process() (*Config, error) {

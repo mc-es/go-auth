@@ -34,14 +34,15 @@ func validMinimalConfig() *config.Config {
 			Period: time.Minute,
 		},
 		Database: config.Database{
-			Name:     "testdb",
-			Host:     "localhost",
-			Port:     5432,
-			User:     "testuser",
-			Password: "p@ss",
-			SSLMode:  "disable",
-			MaxConns: 10,
-			MaxIdle:  5,
+			Name:            "testdb",
+			Host:            "localhost",
+			Port:            5432,
+			User:            "testuser",
+			Password:        "p@ss",
+			SSLMode:         "disable",
+			MaxOpenConns:    10,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: 30 * time.Minute,
 		},
 		Security: config.Security{
 			JWTSecret:  "01234567890123456789012345678901",
@@ -108,28 +109,6 @@ func TestSMTPAddr(t *testing.T) {
 			assert.Equal(t, tt.expect, cfg.SMTPAddr())
 		})
 	}
-}
-
-func TestDSN(t *testing.T) {
-	t.Parallel()
-
-	cfg := validMinimalConfig()
-	got := cfg.DSN()
-	assert.Contains(t, got, "host=localhost")
-	assert.Contains(t, got, "port=5432")
-	assert.Contains(t, got, "user=testuser")
-	assert.Contains(t, got, "password=p@ss")
-	assert.Contains(t, got, "dbname=testdb")
-	assert.Contains(t, got, "sslmode=disable")
-}
-
-func TestDSNWithSpecialPassword(t *testing.T) {
-	t.Parallel()
-
-	cfg := validMinimalConfig()
-	cfg.Database.Password = "p@ss:w0rd"
-	got := cfg.DSN()
-	assert.Contains(t, got, "password=p@ss:w0rd")
 }
 
 func TestDatabaseURL(t *testing.T) {

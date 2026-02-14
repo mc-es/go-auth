@@ -31,53 +31,72 @@ rate_limit:
   limit: 100
   period: 1m
 database:
-  name: testdb
-  host: localhost
-  port: 5432
-  user: postgres
-  password: password
-  ssl_mode: disable
-  max_conns: 10
-  max_idle: 5
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 30m
 security:
-  jwt_secret: 12345678901234567890123456789012
   access_ttl: 15m
   refresh_ttl: 24h
   hash_cost: 10
-smtp:
-  host: smtp.mailtrap.io
-  port: 2525
-  username: "user"
-  password: password
-  from: no-reply@example.com
 `
 
 func TestLoadFromReader(t *testing.T) {
-	type modifierFunc func(string) string
+	setEnvVars := func(t *testing.T) {
+		t.Helper()
+		t.Setenv("DATABASE_NAME", "testdb")
+		t.Setenv("DATABASE_HOST", "localhost")
+		t.Setenv("DATABASE_PORT", "5432")
+		t.Setenv("DATABASE_USER", "postgres")
+		t.Setenv("DATABASE_PASSWORD", "password")
+		t.Setenv("DATABASE_SSLMODE", "disable")
+		t.Setenv("SECURITY_JWT_SECRET", "12345678901234567890123456789012")
+		t.Setenv("SMTP_HOST", "smtp.mailtrap.io")
+		t.Setenv("SMTP_PORT", "2525")
+		t.Setenv("SMTP_USERNAME", "user")
+		t.Setenv("SMTP_PASSWORD", "password")
+		t.Setenv("SMTP_FROM", "no-reply@example.com")
+	}
 
 	tests := []struct {
 		name     string
-		modifier modifierFunc
+		modifier func(string) string
+		setEnvs  func(*testing.T)
 		want     error
 		assert   func(*testing.T, *config.Config)
 	}{
 		{
-			name: "valid config",
+			name:    "valid config",
+			setEnvs: setEnvVars,
 			assert: func(t *testing.T, c *config.Config) {
 				assert.Equal(t, "go-auth-test", c.App.Name)
+				assert.Equal(t, "postgres", c.Database.User)
 				assert.Equal(t, 8080, int(c.Server.Port))
 				assert.Equal(t, 60*time.Second, c.Server.IdleTO)
 			},
 		},
 		{
-			name: "required field missing",
+			name: "sensitive key in yaml",
+			modifier: func(s string) string {
+				return strings.Replace(s, "conn_max_lifetime: 30m", "conn_max_lifetime: 30m\n  password: I_SHOULD_NOT_BE_HERE", 1)
+			},
+			want: config.ErrSensitiveConfig,
+		},
+		{
+			name:    "required field missing",
+			setEnvs: nil,
+			want:    config.ErrConfigValidation,
+		},
+		{
+			name:    "required field missing",
+			setEnvs: setEnvVars,
 			modifier: func(s string) string {
 				return strings.Replace(s, `name: go-auth-test`, "", 1)
 			},
 			want: config.ErrConfigValidation,
 		},
 		{
-			name: "readto greater than idleto",
+			name:    "readto greater than idleto",
+			setEnvs: setEnvVars,
 			modifier: func(s string) string {
 				s = strings.Replace(s, `idle_to: 60s`, `idle_to: 10s`, 1)
 				s = strings.Replace(s, `read_to: 10s`, `read_to: 20s`, 1)
@@ -87,14 +106,16 @@ func TestLoadFromReader(t *testing.T) {
 			want: config.ErrConfigValidation,
 		},
 		{
-			name: "syntax invalid yaml",
+			name:    "syntax invalid yaml",
+			setEnvs: setEnvVars,
 			modifier: func(s string) string {
 				return strings.Replace(s, `port: 8080`, `port: "not-a-number"`, 1)
 			},
 			want: config.ErrConfigUnmarshal,
 		},
 		{
-			name: "invalid enum",
+			name:    "invalid enum",
+			setEnvs: setEnvVars,
 			modifier: func(s string) string {
 				return strings.Replace(s, `env: dev`, `env: staging`, 1)
 			},
@@ -104,7 +125,9 @@ func TestLoadFromReader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			if tt.setEnvs != nil {
+				tt.setEnvs(t)
+			}
 
 			yamlContent := configYAML
 			if tt.modifier != nil {
@@ -133,7 +156,7 @@ func TestLoadFromReader(t *testing.T) {
 func TestLoadFileNotFound(t *testing.T) {
 	l := config.NewLoader()
 
-	cfg, err := l.Load("")
+	cfg, err := l.Load("non-existent.yml")
 
 	require.Error(t, err)
 	assert.Nil(t, cfg)

@@ -4,11 +4,11 @@ services:
     container_name: go-auth-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${GO_AUTH_DATABASE_USER}
-      POSTGRES_PASSWORD: ${GO_AUTH_DATABASE_PASSWORD}
-      POSTGRES_DB: ${GO_AUTH_DATABASE_NAME}
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
     ports:
-      - "${GO_AUTH_DATABASE_PORT}:5432"
+      - "${DATABASE_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:

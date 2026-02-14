@@ -9,8 +9,7 @@
     "cors",
     "rate_limit",
     "database",
-    "security",
-    "smtp"
+    "security"
   ],
   "properties": {
     "app": {
@@ -157,63 +156,28 @@
     },
     "database": {
       "type": "object",
-      "description": "PostgreSQL database connection settings.",
+      "description": "Database configuration.",
       "required": [
-        "name",
-        "host",
-        "port",
-        "user",
-        "password",
-        "ssl_mode",
-        "max_conns",
-        "max_idle"
+        "max_open_conns",
+        "max_idle_conns",
+        "conn_max_lifetime"
       ],
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "PostgreSQL database name (3-100 chars).",
-          "minLength": 3,
-          "maxLength": 100
-        },
-        "host": {
-          "type": "string",
-          "description": "Database server hostname or IP address."
-        },
-        "port": {
+        "max_open_conns": {
           "type": "integer",
-          "description": "Database server port (0-65535).",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        "user": {
-          "type": "string",
-          "description": "Database authentication username."
-        },
-        "password": {
-          "type": "string",
-          "description": "Database authentication password."
-        },
-        "ssl_mode": {
-          "type": "string",
-          "description": "PostgreSQL SSL connection mode.",
-          "enum": [
-            "disable",
-            "require",
-            "verify-ca",
-            "verify-full"
-          ]
-        },
-        "max_conns": {
-          "type": "integer",
-          "description": "Maximum database connections (1-100).",
+          "description": "Maximum number of connections to the database (1-100).",
           "minimum": 1,
           "maximum": 100
         },
-        "max_idle": {
+        "max_idle_conns": {
           "type": "integer",
-          "description": "Maximum idle connections (1-50, must be <= max_conns).",
+          "description": "Maximum number of idle connections to the database (1-50).",
           "minimum": 1,
           "maximum": 50
+        },
+        "conn_max_lifetime": {
+          "$ref": "#/$defs/duration",
+          "description": "Maximum lifetime of a connection to the database."
         }
       },
       "additionalProperties": false
@@ -222,18 +186,11 @@
       "type": "object",
       "description": "JWT token and password hashing configuration.",
       "required": [
-        "jwt_secret",
         "access_ttl",
         "refresh_ttl",
         "hash_cost"
       ],
       "properties": {
-        "jwt_secret": {
-          "type": "string",
-          "description": "JWT signing secret key (32-512 chars).",
-          "minLength": 32,
-          "maxLength": 512
-        },
         "access_ttl": {
           "$ref": "#/$defs/duration",
           "description": "Access token time-to-live duration."
@@ -247,43 +204,6 @@
           "description": "bcrypt hashing cost factor (10-15).",
           "minimum": 10,
           "maximum": 15
-        }
-      },
-      "additionalProperties": false
-    },
-    "smtp": {
-      "type": "object",
-      "description": "SMTP email server configuration.",
-      "required": [
-        "host",
-        "port",
-        "username",
-        "password",
-        "from"
-      ],
-      "properties": {
-        "host": {
-          "type": "string",
-          "description": "SMTP server hostname or IP address."
-        },
-        "port": {
-          "type": "integer",
-          "description": "SMTP server port (0-65535).",
-          "minimum": 0,
-          "maximum": 65535
-        },
-        "username": {
-          "type": "string",
-          "description": "SMTP authentication username."
-        },
-        "password": {
-          "type": "string",
-          "description": "SMTP authentication password."
-        },
-        "from": {
-          "type": "string",
-          "format": "email",
-          "description": "Sender email address for outgoing messages."
         }
       },
       "additionalProperties": false
