@@ -77,7 +77,12 @@ func TestLoadFromReader(t *testing.T) {
 		{
 			name: "sensitive key in yaml",
 			modifier: func(s string) string {
-				return strings.Replace(s, "conn_max_lifetime: 30m", "conn_max_lifetime: 30m\n  password: I_SHOULD_NOT_BE_HERE", 1)
+				return strings.Replace(
+					s,
+					"conn_max_lifetime: 30m",
+					"conn_max_lifetime: 30m\n  password: I_SHOULD_NOT_BE_HERE",
+					1,
+				)
 			},
 			want: config.ErrSensitiveConfig,
 		},
