@@ -14,6 +14,12 @@ var (
 )
 
 var (
+	ErrRoleRequired = errors.New("domain: role is required")
+	ErrRoleInvalid  = errors.New("domain: role is invalid")
+	ErrRoleScan     = errors.New("domain: unsupported type for role")
+)
+
+var (
 	ErrUsernameRequired = errors.New("domain: username is required")
 	ErrUsernameTooShort = errors.New("domain: username is too short")
 	ErrUsernameTooLong  = errors.New("domain: username is too long")
