@@ -93,16 +93,19 @@ func TestUserCanLogin(t *testing.T) {
 		assert.NoError(t, u.Verify())
 		assert.True(t, u.CanLogin())
 	})
+
 	t.Run("no unverified", func(t *testing.T) {
 		u := mustUser(t)
 		assert.False(t, u.CanLogin())
 	})
+
 	t.Run("no banned", func(t *testing.T) {
 		u := mustUser(t)
 		_ = u.Verify()
 		_ = u.Ban()
 		assert.False(t, u.CanLogin())
 	})
+
 	t.Run("no uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.False(t, u.CanLogin())
@@ -115,17 +118,20 @@ func TestUserVerify(t *testing.T) {
 		assert.NoError(t, u.Verify())
 		assert.NotNil(t, u.VerifiedAt)
 	})
+
 	t.Run("already verified", func(t *testing.T) {
 		u := mustUser(t)
 		now := time.Now().UTC()
 		u.VerifiedAt = &now
 		assert.ErrorIs(t, u.Verify(), domain.ErrUserVerified)
 	})
+
 	t.Run("banned", func(t *testing.T) {
 		u := mustUser(t)
 		u.Status = domain.StatusBanned
 		assert.ErrorIs(t, u.Verify(), domain.ErrUserNotActivated)
 	})
+
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.ErrorIs(t, u.Verify(), domain.ErrUserNotActivated)
@@ -138,16 +144,19 @@ func TestUserBan(t *testing.T) {
 		assert.NoError(t, u.Ban())
 		assert.True(t, u.IsBanned())
 	})
+
 	t.Run("already banned", func(t *testing.T) {
 		u := mustUser(t)
 		u.Status = domain.StatusBanned
 		assert.ErrorIs(t, u.Ban(), domain.ErrUserBanned)
 	})
+
 	t.Run("deleted", func(t *testing.T) {
 		u := mustUser(t)
 		u.Status = domain.StatusDeleted
 		assert.ErrorIs(t, u.Ban(), domain.ErrUserDeleted)
 	})
+
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.NoError(t, u.Ban())
@@ -162,10 +171,12 @@ func TestUserUnban(t *testing.T) {
 		assert.NoError(t, u.Unban())
 		assert.True(t, u.IsActivated())
 	})
+
 	t.Run("activated", func(t *testing.T) {
 		u := mustUser(t)
 		assert.ErrorIs(t, u.Unban(), domain.ErrUserNotBanned)
 	})
+
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.ErrorIs(t, u.Unban(), domain.ErrUserNotBanned)
@@ -178,11 +189,13 @@ func TestUserDelete(t *testing.T) {
 		assert.NoError(t, u.Delete())
 		assert.True(t, u.IsDeleted())
 	})
+
 	t.Run("already deleted", func(t *testing.T) {
 		u := mustUser(t)
 		u.Status = domain.StatusDeleted
 		assert.ErrorIs(t, u.Delete(), domain.ErrUserDeleted)
 	})
+
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.NoError(t, u.Delete())
@@ -200,11 +213,13 @@ func TestUserChangePassword(t *testing.T) {
 		nv, _ := newPass.Value()
 		assert.Equal(t, nv, v)
 	})
+
 	t.Run("banned", func(t *testing.T) {
 		u := mustUser(t)
 		u.Status = domain.StatusBanned
 		assert.ErrorIs(t, u.ChangePassword(newPass), domain.ErrUserNotActivated)
 	})
+
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.ErrorIs(t, u.ChangePassword(newPass), domain.ErrUserNotActivated)
@@ -218,19 +233,23 @@ func TestUserUpdateInfo(t *testing.T) {
 		assert.Equal(t, "Jane", u.FirstName)
 		assert.Equal(t, "Smith", u.LastName)
 	})
+
 	t.Run("empty first", func(t *testing.T) {
 		u := mustUser(t)
 		assert.ErrorIs(t, u.UpdateInfo("", userTestLastName), domain.ErrFirstNameRequired)
 	})
+
 	t.Run("empty last", func(t *testing.T) {
 		u := mustUser(t)
 		assert.ErrorIs(t, u.UpdateInfo(userTestFirstName, ""), domain.ErrLastNameRequired)
 	})
+
 	t.Run("banned", func(t *testing.T) {
 		u := mustUser(t)
 		u.Status = domain.StatusBanned
 		assert.ErrorIs(t, u.UpdateInfo("Jane", "Smith"), domain.ErrUserNotActivated)
 	})
+
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.ErrorIs(t, u.UpdateInfo("Jane", "Smith"), domain.ErrUserNotActivated)
@@ -244,12 +263,14 @@ func TestUserUpdateRole(t *testing.T) {
 		assert.NoError(t, u.UpdateRole(admin))
 		assert.Equal(t, admin, u.Role)
 	})
+
 	t.Run("banned", func(t *testing.T) {
 		u := mustUser(t)
 		u.Status = domain.StatusBanned
 		admin, _ := domain.NewRole(domain.RoleAdmin)
 		assert.ErrorIs(t, u.UpdateRole(admin), domain.ErrUserNotActivated)
 	})
+
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 
