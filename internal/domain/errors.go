@@ -36,3 +36,10 @@ var (
 	ErrUserDeleted       = errors.New("domain: user is deleted")
 	ErrUserVerified      = errors.New("domain: user is verified")
 )
+
+var (
+	ErrUserIDRequired = errors.New("domain: user ID is required")
+	ErrTokenRequired  = errors.New("domain: token is required")
+	ErrSessionExpired = errors.New("domain: session is expired")
+	ErrSessionRevoked = errors.New("domain: session is revoked")
+)
