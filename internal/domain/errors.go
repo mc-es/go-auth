@@ -26,3 +26,13 @@ var (
 	ErrUsernameInvalid  = errors.New("domain: username is invalid")
 	ErrUsernameScan     = errors.New("domain: unsupported type for username")
 )
+
+var (
+	ErrFirstNameRequired = errors.New("domain: first name is required")
+	ErrLastNameRequired  = errors.New("domain: last name is required")
+	ErrUserBanned        = errors.New("domain: user is banned")
+	ErrUserNotBanned     = errors.New("domain: user is not banned")
+	ErrUserNotActivated  = errors.New("domain: user is not activated")
+	ErrUserDeleted       = errors.New("domain: user is deleted")
+	ErrUserVerified      = errors.New("domain: user is verified")
+)

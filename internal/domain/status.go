@@ -3,9 +3,9 @@ package domain
 type Status string
 
 const (
-	StatusPending Status = "pending"
-	StatusActive  Status = "active"
-	StatusBanned  Status = "banned"
+	StatusActivated Status = "activated"
+	StatusBanned    Status = "banned"
+	StatusDeleted   Status = "deleted"
 )
 
 func (s Status) String() string {
@@ -13,5 +13,5 @@ func (s Status) String() string {
 }
 
 func (s Status) IsValid() bool {
-	return s == StatusPending || s == StatusActive || s == StatusBanned
+	return s == StatusActivated || s == StatusBanned || s == StatusDeleted
 }
