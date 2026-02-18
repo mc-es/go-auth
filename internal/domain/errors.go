@@ -41,8 +41,6 @@ var (
 	ErrUserIDRequired   = errors.New("domain: user ID is required")
 	ErrTokenRequired    = errors.New("domain: token is required")
 	ErrTokenTypeInvalid = errors.New("domain: token type is invalid")
-	ErrTokenExpired     = errors.New("domain: token is expired")
-	ErrTokenUsed        = errors.New("domain: token is used")
 	ErrSessionExpired   = errors.New("domain: session is expired")
 	ErrSessionRevoked   = errors.New("domain: session is revoked")
 )
