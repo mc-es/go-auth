@@ -3,6 +3,8 @@ package domain
 type TokenType string
 
 const (
+	TokenTypeAccess        TokenType = "access"
+	TokenTypeRefresh       TokenType = "refresh"
 	TokenTypeVerifyEmail   TokenType = "verify_email"
 	TokenTypePasswordReset TokenType = "password_reset"
 	TokenTypeMagicLink     TokenType = "magic_link"
@@ -13,5 +15,6 @@ func (t TokenType) String() string {
 }
 
 func (t TokenType) IsValid() bool {
-	return t == TokenTypeVerifyEmail || t == TokenTypePasswordReset || t == TokenTypeMagicLink
+	return t == TokenTypeAccess || t == TokenTypeRefresh || t == TokenTypeVerifyEmail || t == TokenTypePasswordReset ||
+		t == TokenTypeMagicLink
 }

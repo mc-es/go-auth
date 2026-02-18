@@ -122,6 +122,10 @@ func (u *User) Ban() error {
 }
 
 func (u *User) Unban() error {
+	if u.IsDeleted() {
+		return ErrUserDeleted
+	}
+
 	if !u.IsBanned() {
 		return ErrUserNotBanned
 	}
