@@ -22,9 +22,16 @@ type User struct {
 }
 
 func NewUser(username Username, email Email, password Password, firstName, lastName string) (*User, error) {
-	role, err := NewRole(RoleUser)
-	if err != nil {
-		return nil, err
+	if username.IsZero() {
+		return nil, ErrUsernameRequired
+	}
+
+	if email.IsZero() {
+		return nil, ErrEmailRequired
+	}
+
+	if password.IsZero() {
+		return nil, ErrPasswordRequired
 	}
 
 	fName := strings.TrimSpace(firstName)
@@ -36,6 +43,11 @@ func NewUser(username Username, email Email, password Password, firstName, lastN
 
 	if lName == "" {
 		return nil, ErrLastNameRequired
+	}
+
+	role, err := NewRole(RoleUser)
+	if err != nil {
+		return nil, err
 	}
 
 	now := time.Now().UTC()

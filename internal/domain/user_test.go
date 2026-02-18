@@ -87,6 +87,30 @@ func TestNewUser(t *testing.T) {
 	}
 }
 
+func TestNewUserZero(t *testing.T) {
+	username, _ := domain.NewUsername(userTestUsername)
+	email, _ := domain.NewEmail(userTestEmail)
+	password, _ := domain.NewPasswordFromHash(userTestPassHash)
+
+	t.Run("zero username", func(t *testing.T) {
+		got, err := domain.NewUser(domain.Username{}, email, password, userTestFirstName, userTestLastName)
+		assert.ErrorIs(t, err, domain.ErrUsernameRequired)
+		assert.Nil(t, got)
+	})
+
+	t.Run("zero email", func(t *testing.T) {
+		got, err := domain.NewUser(username, domain.Email{}, password, userTestFirstName, userTestLastName)
+		assert.ErrorIs(t, err, domain.ErrEmailRequired)
+		assert.Nil(t, got)
+	})
+
+	t.Run("zero password", func(t *testing.T) {
+		got, err := domain.NewUser(username, email, domain.Password{}, userTestFirstName, userTestLastName)
+		assert.ErrorIs(t, err, domain.ErrPasswordRequired)
+		assert.Nil(t, got)
+	})
+}
+
 func TestUserCanLogin(t *testing.T) {
 	t.Run("yes", func(t *testing.T) {
 		u := mustUser(t)

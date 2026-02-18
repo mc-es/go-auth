@@ -117,6 +117,7 @@ func TestNewToken(t *testing.T) {
 
 			if tt.wantErr != nil {
 				assert.Nil(t, got)
+
 				return
 			}
 

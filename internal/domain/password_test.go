@@ -43,6 +43,14 @@ func TestPassword(t *testing.T) {
 	}
 }
 
+func TestPasswordString(t *testing.T) {
+	var zero domain.Password
+	assert.Equal(t, "*****", zero.String())
+
+	password, _ := domain.NewPasswordFromHash(hashArgon2)
+	assert.Equal(t, "*****", password.String())
+}
+
 func TestPasswordIsZero(t *testing.T) {
 	var zero domain.Password
 	assert.True(t, zero.IsZero())
@@ -51,12 +59,12 @@ func TestPasswordIsZero(t *testing.T) {
 	assert.False(t, password.IsZero())
 }
 
-func TestPasswordString(t *testing.T) {
+func TestPasswordHash(t *testing.T) {
 	var zero domain.Password
-	assert.Equal(t, "*****", zero.String())
+	assert.Equal(t, "", zero.Hash())
 
 	password, _ := domain.NewPasswordFromHash(hashArgon2)
-	assert.Equal(t, "*****", password.String())
+	assert.Equal(t, hashArgon2, password.Hash())
 }
 
 func TestPasswordValue(t *testing.T) {

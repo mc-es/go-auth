@@ -32,6 +32,10 @@ func (p Password) IsZero() bool {
 	return p.value == ""
 }
 
+func (p Password) Hash() string {
+	return p.value
+}
+
 func (p Password) Value() (driver.Value, error) {
 	if p.IsZero() {
 		return nil, ErrPasswordRequired
