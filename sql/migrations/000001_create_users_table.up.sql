@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS users (
   password VARCHAR(255) NOT NULL,
   first_name VARCHAR(100) NOT NULL,
   last_name VARCHAR(100) NOT NULL,
-  role VARCHAR(20) NOT NULL DEFAULT 'user',
-  status VARCHAR(20) NOT NULL DEFAULT 'activated',
+  role VARCHAR(20) NOT NULL,
+  status VARCHAR(20) NOT NULL,
   verified_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

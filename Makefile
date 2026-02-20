@@ -10,6 +10,7 @@ SHELL       := /bin/bash
 	profile-cpu profile-mem profile-trace \
 	lint format vuln \
 	deps-check deps-tidy deps-vendor deps-upgrade \
+	sqlc-generate \
 	migrate-create migrate-up migrate-down migrate-status migrate-drop \
 	docker-up docker-down docker-logs docker-ps docker-stats docker-shell \
 	install-lefthook \
@@ -65,6 +66,7 @@ LEFTHOOK_VERSION  := v2.1.1
 GOTESTSUM_VERSION := v1.13.0
 BENCHSTAT_VERSION := latest
 PPROF_VERSION     := latest
+SQLC_VERSION      := v1.30.0
 MIGRATE_VERSION   := v4.19.1
 
 # Tool Binaries
@@ -75,6 +77,7 @@ LEFTHOOK  := $(TOOLS_DIR)/lefthook
 GOTESTSUM := $(TOOLS_DIR)/gotestsum
 BENCHSTAT := $(TOOLS_DIR)/benchstat
 PPROF     := $(TOOLS_DIR)/pprof
+SQLC      := $(TOOLS_DIR)/sqlc
 MIGRATE   := $(TOOLS_DIR)/migrate
 
 # Environment file
@@ -126,6 +129,7 @@ $(eval $(call install_go_tool,lefthook,github.com/evilmartians/lefthook/v2,$(LEF
 $(eval $(call install_go_tool,gotestsum,gotest.tools/gotestsum,$(GOTESTSUM_VERSION)))
 $(eval $(call install_go_tool,benchstat,golang.org/x/perf/cmd/benchstat,$(BENCHSTAT_VERSION)))
 $(eval $(call install_go_tool,pprof,github.com/google/pprof,$(PPROF_VERSION)))
+$(eval $(call install_go_tool,sqlc,github.com/sqlc-dev/sqlc/cmd/sqlc,$(SQLC_VERSION)))
 $(eval $(call install_go_tool_tags,migrate,postgres,github.com/golang-migrate/migrate/v4/cmd/migrate,$(MIGRATE_VERSION)))
 
 # --- Help ---
@@ -288,6 +292,13 @@ deps-vendor: ## Create vendor directory
 deps-upgrade: ## Upgrade direct dependencies
 	@$(GO) get -u ./... && $(GO) mod tidy
 	@$(call print_success,"Dependencies upgraded!")
+
+
+# --- SQLC ---
+sqlc-generate: $(SQLC) ## Generate SQLC code
+	@$(call print_header,"Generating SQLC code...")
+	@"$(SQLC)" generate
+	@$(call print_success,"SQLC code generated!")
 
 
 # --- Migrations ---
