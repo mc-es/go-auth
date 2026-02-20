@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.7.0](https://github.com/mc-es/go-auth/compare/v0.6.0...v0.7.0) (2026-02-20)
+
+
+### ✨ Features
+
+* **domain:** add JWT token management with claims and validation, including tests ([daec37a](https://github.com/mc-es/go-auth/commit/daec37ac5993834351c83700e58ee74e54566727))
+* **domain:** add Status and TokenType value objects with validation methods ([f001a00](https://github.com/mc-es/go-auth/commit/f001a00fafc5db670a28c0a58988ed68256ed506))
+* **domain:** add Token management with validation and tests ([8225a0d](https://github.com/mc-es/go-auth/commit/8225a0d777513bf924f2d2cbdf94a54da346a152))
+* **domain:** add User entity with validation and management methods ([0a97383](https://github.com/mc-es/go-auth/commit/0a97383b8b1936f13283ebd7e4bcf11a4b7b11ec))
+* **domain:** implement Email value object with SQL/JSON support and tests ([1e8df7b](https://github.com/mc-es/go-auth/commit/1e8df7bcb5e33ae65ea5e9d19d354279bd876a5d))
+* **domain:** implement Password value object with SQL/JSON support and tests ([18e5bb9](https://github.com/mc-es/go-auth/commit/18e5bb970ad8956b741a5cadb2e7fa260cec8c81))
+* **domain:** implement PasswordHasher interface and bcrypt hasher with tests ([75a2691](https://github.com/mc-es/go-auth/commit/75a2691e86ae16b6664e379d0329aa43fccfa2c0))
+* **domain:** implement Role value object with SQL/JSON support and tests ([387201b](https://github.com/mc-es/go-auth/commit/387201b7e5ef45e6a80517f6ed78131ffa75da10))
+* **domain:** implement Session management with validation and tests ([276feab](https://github.com/mc-es/go-auth/commit/276feab7e03ab111eea41f749972cfca61178892))
+* **domain:** implement Username value object with SQL/JSON support and tests ([5930950](https://github.com/mc-es/go-auth/commit/593095076fb6e32f9e092acf5e2ad7eb2aa255a7))
+* **domain:** introduce UserRepository and SessionRepository interfaces for user and session management ([8fd571b](https://github.com/mc-es/go-auth/commit/8fd571ba173eabb11af1568911a2f3bcabe9d5c5))
+
 ## [0.6.0](https://github.com/mc-es/go-auth/compare/v0.5.1...v0.6.0) (2026-02-14)
 
 
