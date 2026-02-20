@@ -15,7 +15,7 @@ type Session struct {
 	UserID    uuid.UUID
 	Token     string
 	UserAgent string
-	ClientIp  string
+	ClientIP  string
 	ExpiresAt time.Time
 	RevokedAt *time.Time
 	CreatedAt time.Time

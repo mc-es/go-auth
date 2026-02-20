@@ -34,7 +34,7 @@ type CreateSessionParams struct {
 	UserID    uuid.UUID
 	Token     string
 	UserAgent string
-	ClientIp  string
+	ClientIP  string
 	ExpiresAt time.Time
 	RevokedAt *time.Time
 	CreatedAt time.Time
@@ -47,7 +47,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		arg.UserID,
 		arg.Token,
 		arg.UserAgent,
-		arg.ClientIp,
+		arg.ClientIP,
 		arg.ExpiresAt,
 		arg.RevokedAt,
 		arg.CreatedAt,
@@ -59,7 +59,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.UserID,
 		&i.Token,
 		&i.UserAgent,
-		&i.ClientIp,
+		&i.ClientIP,
 		&i.ExpiresAt,
 		&i.RevokedAt,
 		&i.CreatedAt,
@@ -103,7 +103,7 @@ func (q *Queries) GetSessionByID(ctx context.Context, id uuid.UUID) (Session, er
 		&i.UserID,
 		&i.Token,
 		&i.UserAgent,
-		&i.ClientIp,
+		&i.ClientIP,
 		&i.ExpiresAt,
 		&i.RevokedAt,
 		&i.CreatedAt,
@@ -127,7 +127,7 @@ func (q *Queries) GetSessionByToken(ctx context.Context, token string) (Session,
 		&i.UserID,
 		&i.Token,
 		&i.UserAgent,
-		&i.ClientIp,
+		&i.ClientIP,
 		&i.ExpiresAt,
 		&i.RevokedAt,
 		&i.CreatedAt,
@@ -157,7 +157,7 @@ func (q *Queries) GetSessionsByUserID(ctx context.Context, userID uuid.UUID) ([]
 			&i.UserID,
 			&i.Token,
 			&i.UserAgent,
-			&i.ClientIp,
+			&i.ClientIP,
 			&i.ExpiresAt,
 			&i.RevokedAt,
 			&i.CreatedAt,
@@ -190,7 +190,7 @@ type UpdateSessionParams struct {
 	ID        uuid.UUID
 	Token     string
 	UserAgent string
-	ClientIp  string
+	ClientIP  string
 	ExpiresAt time.Time
 	RevokedAt *time.Time
 	UpdatedAt time.Time
@@ -201,7 +201,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 		arg.ID,
 		arg.Token,
 		arg.UserAgent,
-		arg.ClientIp,
+		arg.ClientIP,
 		arg.ExpiresAt,
 		arg.RevokedAt,
 		arg.UpdatedAt,
@@ -212,7 +212,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 		&i.UserID,
 		&i.Token,
 		&i.UserAgent,
-		&i.ClientIp,
+		&i.ClientIP,
 		&i.ExpiresAt,
 		&i.RevokedAt,
 		&i.CreatedAt,
