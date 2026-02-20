@@ -51,7 +51,7 @@ COVERAGE_DIR   := $(PROJECT_ROOT)/coverage
 TMP_DIR        := $(PROJECT_ROOT)/tmp
 BIN_DIR        := $(PROJECT_ROOT)/bin
 TOOLS_DIR      := $(BIN_DIR)/tools
-MIGRATIONS_DIR := $(PROJECT_ROOT)/migrations
+MIGRATIONS_DIR := $(PROJECT_ROOT)/sql/migrations
 
 # App
 APP_NAME     := app
