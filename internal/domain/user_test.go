@@ -175,12 +175,6 @@ func TestUserBan(t *testing.T) {
 		assert.ErrorIs(t, u.Ban(), domain.ErrUserBanned)
 	})
 
-	t.Run("deleted", func(t *testing.T) {
-		u := mustUser(t)
-		u.Status = domain.StatusDeleted
-		assert.ErrorIs(t, u.Ban(), domain.ErrUserDeleted)
-	})
-
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.NoError(t, u.Ban())
@@ -204,26 +198,6 @@ func TestUserUnban(t *testing.T) {
 	t.Run("uninitialized", func(t *testing.T) {
 		var u domain.User
 		assert.ErrorIs(t, u.Unban(), domain.ErrUserNotBanned)
-	})
-}
-
-func TestUserDelete(t *testing.T) {
-	t.Run("activated", func(t *testing.T) {
-		u := mustUser(t)
-		assert.NoError(t, u.Delete())
-		assert.True(t, u.IsDeleted())
-	})
-
-	t.Run("already deleted", func(t *testing.T) {
-		u := mustUser(t)
-		u.Status = domain.StatusDeleted
-		assert.ErrorIs(t, u.Delete(), domain.ErrUserDeleted)
-	})
-
-	t.Run("uninitialized", func(t *testing.T) {
-		var u domain.User
-		assert.NoError(t, u.Delete())
-		assert.True(t, u.IsDeleted())
 	})
 }
 

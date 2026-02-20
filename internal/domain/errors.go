@@ -33,7 +33,6 @@ var (
 	ErrUserBanned        = errors.New("domain: user is banned")
 	ErrUserNotBanned     = errors.New("domain: user is not banned")
 	ErrUserNotActivated  = errors.New("domain: user is not activated")
-	ErrUserDeleted       = errors.New("domain: user is deleted")
 	ErrUserVerified      = errors.New("domain: user is verified")
 )
 

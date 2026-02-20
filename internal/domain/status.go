@@ -5,7 +5,6 @@ type Status string
 const (
 	StatusActivated Status = "activated"
 	StatusBanned    Status = "banned"
-	StatusDeleted   Status = "deleted"
 )
 
 func (s Status) String() string {
@@ -13,5 +12,5 @@ func (s Status) String() string {
 }
 
 func (s Status) IsValid() bool {
-	return s == StatusActivated || s == StatusBanned || s == StatusDeleted
+	return s == StatusActivated || s == StatusBanned
 }

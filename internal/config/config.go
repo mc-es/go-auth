@@ -52,8 +52,8 @@ type Database struct {
 	User            string        `mapstructure:"user"              validate:"required"`
 	Password        string        `mapstructure:"password"          validate:"required"`
 	SSLMode         string        `mapstructure:"sslmode"           validate:"required,oneof=disable require prefer"`
-	MaxOpenConns    int           `mapstructure:"max_open_conns"    validate:"required,min=1,max=100"`
-	MaxIdleConns    int           `mapstructure:"max_idle_conns"    validate:"required,min=1,max=50,ltefield=MaxOpenConns"`
+	MaxConns        int32         `mapstructure:"max_conns"         validate:"required,min=1,max=100"`
+	MinConns        int32         `mapstructure:"min_conns"         validate:"required,min=1,max=50,ltefield=MaxConns"`
 	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime" validate:"required,min=1m,max=1h"`
 }
 
