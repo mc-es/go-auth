@@ -86,6 +86,7 @@ func TestOK(t *testing.T) {
 			assert.Equal(t, contentTypeJSON, rec.Header().Get(headerContentType))
 
 			var body testSuccessBody
+
 			err := json.Unmarshal(rec.Body.Bytes(), &body)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantData, body.Data)
@@ -107,6 +108,7 @@ func TestOKWithMeta(t *testing.T) {
 		assert.Equal(t, contentTypeJSON, rec.Header().Get(headerContentType))
 
 		var body testSuccessBody
+
 		err := json.Unmarshal(rec.Body.Bytes(), &body)
 		assert.NoError(t, err)
 		assert.Equal(t, map[string]any{"id": "1"}, body.Data)
@@ -125,6 +127,7 @@ func TestOKWithMeta(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 
 		var body testSuccessBody
+
 		err := json.Unmarshal(rec.Body.Bytes(), &body)
 		assert.NoError(t, err)
 		assert.Equal(t, "ok", body.Data)
@@ -143,6 +146,7 @@ func TestCreated(t *testing.T) {
 		assert.Equal(t, contentTypeJSON, rec.Header().Get(headerContentType))
 
 		var body testSuccessBody
+
 		err := json.Unmarshal(rec.Body.Bytes(), &body)
 		assert.NoError(t, err)
 		assert.Equal(t, map[string]any{"id": float64(42)}, body.Data)
@@ -160,6 +164,7 @@ func TestAccepted(t *testing.T) {
 		assert.Equal(t, contentTypeJSON, rec.Header().Get(headerContentType))
 
 		var body testSuccessBody
+
 		err := json.Unmarshal(rec.Body.Bytes(), &body)
 		assert.NoError(t, err)
 		assert.Equal(t, map[string]any{"status": "pending"}, body.Data)
@@ -220,6 +225,7 @@ func TestError(t *testing.T) {
 			assert.Equal(t, contentTypeJSON, rec.Header().Get(headerContentType))
 
 			var body testErrorBody
+
 			err := json.Unmarshal(rec.Body.Bytes(), &body)
 			assert.NoError(t, err)
 			assert.Equal(t, string(tt.wantCode), body.Error.Code)

@@ -1,0 +1,18 @@
+package domain
+
+type TokenType string
+
+const (
+	TokenTypeAccess        TokenType = "access"
+	TokenTypeRefresh       TokenType = "refresh"
+	TokenTypeVerifyEmail   TokenType = "verify_email"
+	TokenTypePasswordReset TokenType = "password_reset"
+)
+
+func (t TokenType) String() string {
+	return string(t)
+}
+
+func (t TokenType) IsValid() bool {
+	return t == TokenTypeAccess || t == TokenTypeRefresh || t == TokenTypeVerifyEmail || t == TokenTypePasswordReset
+}

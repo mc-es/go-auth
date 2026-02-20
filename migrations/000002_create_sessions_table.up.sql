@@ -14,8 +14,3 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE UNIQUE INDEX idx_sessions_token ON sessions(token);
-
-CREATE TRIGGER update_sessions_updated_at
-  BEFORE UPDATE ON sessions
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
