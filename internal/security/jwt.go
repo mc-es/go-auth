@@ -55,7 +55,7 @@ func (m *jwtManager) Generate(claims domain.Claims) (string, error) {
 	switch claims.Type {
 	case domain.TokenTypeRefresh:
 		ttl = m.refreshTTL
-	case domain.TokenTypeAccess, domain.TokenTypeVerifyEmail, domain.TokenTypePasswordReset, domain.TokenTypeMagicLink:
+	case domain.TokenTypeAccess, domain.TokenTypeVerifyEmail, domain.TokenTypePasswordReset:
 		ttl = m.accessTTL
 	default:
 		return "", domain.ErrTokenTypeInvalid
@@ -128,15 +128,9 @@ func (m *jwtManager) parseClaims(claims *jwtClaims) (*domain.Claims, error) {
 		return nil, domain.ErrRoleInvalid
 	}
 
-	var exp time.Time
-	if claims.ExpiresAt != nil {
-		exp = claims.ExpiresAt.Time
-	}
-
 	return &domain.Claims{
-		UserID:    userID,
-		Role:      role,
-		Type:      tokenType,
-		ExpiresAt: exp,
+		UserID: userID,
+		Role:   role,
+		Type:   tokenType,
 	}, nil
 }

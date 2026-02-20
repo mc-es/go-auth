@@ -1,15 +1,7 @@
 package domain
 
 import (
-	"database/sql"
 	"database/sql/driver"
-	"encoding"
-)
-
-var (
-	_ driver.Valuer          = Password{}
-	_ sql.Scanner            = (*Password)(nil)
-	_ encoding.TextMarshaler = Password{}
 )
 
 type Password struct {

@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 )
 
@@ -12,10 +10,9 @@ type PasswordHasher interface {
 }
 
 type Claims struct {
-	UserID    uuid.UUID
-	Role      Role
-	Type      TokenType
-	ExpiresAt time.Time
+	UserID uuid.UUID
+	Role   Role
+	Type   TokenType
 }
 
 type TokenManager interface {

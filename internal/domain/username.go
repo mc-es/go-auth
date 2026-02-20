@@ -1,18 +1,9 @@
 package domain
 
 import (
-	"database/sql"
 	"database/sql/driver"
-	"encoding"
 	"regexp"
 	"strings"
-)
-
-var (
-	_ driver.Valuer            = Username{}
-	_ sql.Scanner              = (*Username)(nil)
-	_ encoding.TextMarshaler   = Username{}
-	_ encoding.TextUnmarshaler = (*Username)(nil)
 )
 
 type Username struct {

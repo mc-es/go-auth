@@ -115,7 +115,6 @@ func TestJWTRoundTrip(t *testing.T) {
 	assert.Equal(t, claims.UserID, got.UserID)
 	assert.Equal(t, claims.Role.String(), got.Role.String())
 	assert.Equal(t, claims.Type, got.Type)
-	assert.True(t, got.ExpiresAt.After(time.Now().UTC()), "ExpiresAt should be in the future")
 }
 
 func TestJWTInvalidToken(t *testing.T) {

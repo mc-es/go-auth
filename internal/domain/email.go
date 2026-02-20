@@ -1,18 +1,9 @@
 package domain
 
 import (
-	"database/sql"
 	"database/sql/driver"
-	"encoding"
 	"net/mail"
 	"strings"
-)
-
-var (
-	_ driver.Valuer            = Email{}
-	_ sql.Scanner              = (*Email)(nil)
-	_ encoding.TextMarshaler   = Email{}
-	_ encoding.TextUnmarshaler = (*Email)(nil)
 )
 
 type Email struct {

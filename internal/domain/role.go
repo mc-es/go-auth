@@ -1,17 +1,8 @@
 package domain
 
 import (
-	"database/sql"
 	"database/sql/driver"
-	"encoding"
 	"strings"
-)
-
-var (
-	_ driver.Valuer            = Role{}
-	_ sql.Scanner              = (*Role)(nil)
-	_ encoding.TextMarshaler   = Role{}
-	_ encoding.TextUnmarshaler = (*Role)(nil)
 )
 
 type Permission string
