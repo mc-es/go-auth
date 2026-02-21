@@ -5,8 +5,8 @@ sql:
     queries: "sql/queries"
     gen:
       go:
-        package: "repository"
-        out: "internal/repository"
+        package: "gen"
+        out: "internal/repository/gen"
         sql_package: "pgx/v5"
         rename:
           client_ip: "ClientIP"

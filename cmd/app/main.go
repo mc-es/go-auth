@@ -41,8 +41,15 @@ func run() error {
 	}
 	defer pool.Close()
 
-	queries := repository.New(pool)
-	log.Info("Database queries created", "queries", queries)
+	userRepo, sessionRepo := repository.NewRepositories(pool)
+
+	_ = userRepo
+	_ = sessionRepo
+
+	log.Info("Repository layer ready",
+		"user_repo", "postgres",
+		"session_repo", "postgres",
+	)
 
 	return nil
 }
