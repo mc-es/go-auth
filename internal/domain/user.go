@@ -78,10 +78,6 @@ func (u *User) IsBanned() bool {
 	return u.Status == StatusBanned
 }
 
-func (u *User) IsDeleted() bool {
-	return u.Status == StatusDeleted
-}
-
 func (u *User) IsVerified() bool {
 	return u.VerifiedAt != nil
 }
@@ -107,10 +103,6 @@ func (u *User) Verify() error {
 }
 
 func (u *User) Ban() error {
-	if u.IsDeleted() {
-		return ErrUserDeleted
-	}
-
 	if u.IsBanned() {
 		return ErrUserBanned
 	}
@@ -122,26 +114,11 @@ func (u *User) Ban() error {
 }
 
 func (u *User) Unban() error {
-	if u.IsDeleted() {
-		return ErrUserDeleted
-	}
-
 	if !u.IsBanned() {
 		return ErrUserNotBanned
 	}
 
 	u.Status = StatusActivated
-	u.touch()
-
-	return nil
-}
-
-func (u *User) Delete() error {
-	if u.IsDeleted() {
-		return ErrUserDeleted
-	}
-
-	u.Status = StatusDeleted
 	u.touch()
 
 	return nil

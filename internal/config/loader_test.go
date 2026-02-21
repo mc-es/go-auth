@@ -31,8 +31,8 @@ rate_limit:
   limit: 100
   period: 1m
 database:
-  max_open_conns: 10
-  max_idle_conns: 5
+  max_conns: 10
+  min_conns: 5
   conn_max_lifetime: 30m
 security:
   access_ttl: 15m

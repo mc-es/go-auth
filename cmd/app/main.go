@@ -1,37 +1,55 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"go-auth/internal/bootstrap"
 	"go-auth/internal/config"
+	"go-auth/internal/repository"
 	"go-auth/pkg/logger"
 	_ "go-auth/pkg/logger/adapter/zap"
 	_ "go-auth/pkg/logger/adapter/zerolog"
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	cfg, err := config.NewLoader().Load(".env")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("load config: %w", err)
 	}
 
 	log, err := logger.New(bootstrap.BuildLoggerOptions(cfg)...)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create logger: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("create logger: %w", err)
 	}
 
 	defer func() { _ = log.Sync() }()
 
-	log.Info("Application started",
-		"app_name", cfg.App.Name,
-		"env", cfg.App.Env,
-		"server_address", cfg.ServerAddr(),
-		"database_url", cfg.DatabaseURL(),
-		"smtp_address", cfg.SMTPAddr(),
-		"jwt_key_length", len(cfg.JWTKey()),
+	ctx := context.Background()
+
+	pool, err := bootstrap.NewDBPool(ctx, cfg)
+	if err != nil {
+		return fmt.Errorf("connect to database: %w", err)
+	}
+	defer pool.Close()
+
+	userRepo, sessionRepo := repository.NewRepositories(pool)
+
+	_ = userRepo
+	_ = sessionRepo
+
+	log.Info("Repository layer ready",
+		"user_repo", "postgres",
+		"session_repo", "postgres",
 	)
+
+	return nil
 }

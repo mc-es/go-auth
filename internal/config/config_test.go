@@ -40,8 +40,8 @@ func validMinimalConfig() *config.Config {
 			User:            "testuser",
 			Password:        "p@ss",
 			SSLMode:         "disable",
-			MaxOpenConns:    10,
-			MaxIdleConns:    5,
+			MaxConns:        10,
+			MinConns:        5,
 			ConnMaxLifetime: 30 * time.Minute,
 		},
 		Security: config.Security{

@@ -158,18 +158,18 @@
       "type": "object",
       "description": "Database configuration.",
       "required": [
-        "max_open_conns",
-        "max_idle_conns",
+        "max_conns",
+        "min_conns",
         "conn_max_lifetime"
       ],
       "properties": {
-        "max_open_conns": {
+        "max_conns": {
           "type": "integer",
           "description": "Maximum number of connections to the database (1-100).",
           "minimum": 1,
           "maximum": 100
         },
-        "max_idle_conns": {
+        "min_conns": {
           "type": "integer",
           "description": "Maximum number of idle connections to the database (1-50).",
           "minimum": 1,
