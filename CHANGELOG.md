@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.0](https://github.com/mc-es/go-auth/compare/v0.7.0...v0.8.0) (2026-02-21)
+
+
+### ✨ Features
+
+* **db:** integrate pgx for database connection and implement session and user repositories with SQLC generated queries ([9d255e3](https://github.com/mc-es/go-auth/commit/9d255e3988d30b937faa37c163f682cac74c6e47))
+* **repo:** implement user and session repositories with SQLC generated queries and update repository initialization ([32aeb56](https://github.com/mc-es/go-auth/commit/32aeb56bbc21c32166c194d72759fcf477e6de1a))
+* **sqlc:** add SQLC configuration and generate code; update migrations for user and session tables ([95ea25d](https://github.com/mc-es/go-auth/commit/95ea25d1e50ace708b81462d2829ad3d6748376c))
+
 ## [0.7.0](https://github.com/mc-es/go-auth/compare/v0.6.0...v0.7.0) (2026-02-20)
 
 
