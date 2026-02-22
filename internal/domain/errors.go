@@ -43,6 +43,7 @@ var (
 	ErrTokenRequired           = errors.New("domain: token is required")
 	ErrTokenInvalid            = errors.New("domain: token is invalid")
 	ErrTokenExpired            = errors.New("domain: token is expired")
+	ErrTokenUsed               = errors.New("domain: token is used")
 	ErrTokenTypeInvalid        = errors.New("domain: token type is invalid")
 	ErrTokenSecretRequired     = errors.New("domain: token secret is required")
 	ErrTokenAccessTTLRequired  = errors.New("domain: access TTL must be positive")

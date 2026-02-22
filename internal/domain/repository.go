@@ -25,3 +25,12 @@ type SessionRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
 }
+
+type TokenRepository interface {
+	Save(ctx context.Context, token *Token) error
+	GetByID(ctx context.Context, id uuid.UUID) (*Token, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*Token, error)
+	Update(ctx context.Context, token *Token) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
+}
