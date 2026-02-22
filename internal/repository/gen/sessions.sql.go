@@ -112,6 +112,30 @@ func (q *Queries) GetSessionByID(ctx context.Context, id uuid.UUID) (Session, er
 	return i, err
 }
 
+const getSessionByToken = `-- name: GetSessionByToken :one
+SELECT id, user_id, token, user_agent, client_ip, expires_at, revoked_at, created_at, updated_at
+FROM sessions
+WHERE token = $1
+LIMIT 1
+`
+
+func (q *Queries) GetSessionByToken(ctx context.Context, token string) (Session, error) {
+	row := q.db.QueryRow(ctx, getSessionByToken, token)
+	var i Session
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.UserAgent,
+		&i.ClientIP,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getSessionsByUserID = `-- name: GetSessionsByUserID :many
 SELECT id, user_id, token, user_agent, client_ip, expires_at, revoked_at, created_at, updated_at
 FROM sessions
