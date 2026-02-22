@@ -41,19 +41,6 @@ func (sr *SessionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain
 	return toDomainSession(&repoSession), nil
 }
 
-func (sr *SessionRepository) GetByToken(ctx context.Context, token string) (*domain.Session, error) {
-	repoSession, err := sr.q.GetSessionByToken(ctx, token)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-
-		return nil, fmt.Errorf("get session by token: %w", err)
-	}
-
-	return toDomainSession(&repoSession), nil
-}
-
 func (sr *SessionRepository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Session, error) {
 	repoSessions, err := sr.q.GetSessionsByUserID(ctx, userID)
 	if err != nil {

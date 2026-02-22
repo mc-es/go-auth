@@ -20,12 +20,6 @@ FROM sessions
 WHERE id = $1
 LIMIT 1;
 
--- name: GetSessionByToken :one
-SELECT *
-FROM sessions
-WHERE token = $1
-LIMIT 1;
-
 -- name: GetSessionsByUserID :many
 SELECT *
 FROM sessions
