@@ -7,6 +7,7 @@ import (
 
 	"go-auth/internal/bootstrap"
 	"go-auth/internal/config"
+	"go-auth/internal/handler"
 	"go-auth/internal/repository"
 	"go-auth/internal/security"
 	"go-auth/internal/service"
@@ -65,9 +66,13 @@ func run() error {
 		return fmt.Errorf("create service: %w", err)
 	}
 
-	_ = svc
+	authHandler := handler.NewAuthHandler(svc)
+	healthHandler := handler.NewHealthHandler()
+	router := handler.NewRouter(authHandler, healthHandler, cfg, log)
 
-	log.Info("Service layer is ready")
+	if err := bootstrap.RunServer(cfg, router, log); err != nil {
+		return fmt.Errorf("server: %w", err)
+	}
 
 	return nil
 }

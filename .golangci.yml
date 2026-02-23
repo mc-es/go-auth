@@ -118,3 +118,5 @@ linters:
       min-name-length: 2
       ignore-names:
         - i # for loops
+        - w # http.ResponseWriter
+        - r # http.Request, chi.Router

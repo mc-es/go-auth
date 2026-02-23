@@ -1,6 +1,8 @@
 package apperror
 
 const (
+	MsgInvalidJSON             = "Invalid JSON"
+	MsgRequestBodyRequired     = "Request body is required"
 	MsgInvalidCredentials      = "Invalid credentials" //nolint:gosec
 	MsgLoginRequestRequired    = "Login request is required"
 	MsgRegisterRequestRequired = "Register request is required"
