@@ -202,7 +202,7 @@ func TestSessionRotate(t *testing.T) {
 		s := mustSession(t)
 		oldID := s.ID
 
-		newS, err := s.Rotate(newToken, newExpiresAt)
+		newS, err := s.Rotate(newToken, newExpiresAt, "", "")
 		assert.NoError(t, err)
 		assert.NotNil(t, newS)
 
@@ -221,7 +221,7 @@ func TestSessionRotate(t *testing.T) {
 		now := time.Now().UTC()
 		s.RevokedAt = &now
 
-		newS, err := s.Rotate(newToken, newExpiresAt)
+		newS, err := s.Rotate(newToken, newExpiresAt, "", "")
 		assert.ErrorIs(t, err, domain.ErrSessionRevoked)
 		assert.Nil(t, newS)
 	})
@@ -230,7 +230,7 @@ func TestSessionRotate(t *testing.T) {
 		s := mustSession(t)
 		s.ExpiresAt = time.Now().UTC().Add(-time.Minute)
 
-		newS, err := s.Rotate(newToken, newExpiresAt)
+		newS, err := s.Rotate(newToken, newExpiresAt, "", "")
 		assert.ErrorIs(t, err, domain.ErrSessionExpired)
 		assert.Nil(t, newS)
 	})
@@ -238,7 +238,7 @@ func TestSessionRotate(t *testing.T) {
 	t.Run("empty new token", func(t *testing.T) {
 		s := mustSession(t)
 
-		newS, err := s.Rotate("", newExpiresAt)
+		newS, err := s.Rotate("", newExpiresAt, "", "")
 		assert.ErrorIs(t, err, domain.ErrTokenRequired)
 		assert.Nil(t, newS)
 	})
@@ -246,8 +246,20 @@ func TestSessionRotate(t *testing.T) {
 	t.Run("new expires at in past", func(t *testing.T) {
 		s := mustSession(t)
 
-		newS, err := s.Rotate(newToken, time.Now().UTC().Add(-time.Hour))
+		newS, err := s.Rotate(newToken, time.Now().UTC().Add(-time.Hour), "", "")
 		assert.ErrorIs(t, err, domain.ErrSessionExpired)
 		assert.Nil(t, newS)
+	})
+
+	t.Run("new session uses provided userAgent and clientIP", func(t *testing.T) {
+		s := mustSession(t)
+		newUA := "Mozilla/5.0 (refresh)"
+		newIP := "192.168.1.2"
+
+		newS, err := s.Rotate(newToken, newExpiresAt, newUA, newIP)
+		assert.NoError(t, err)
+		assert.NotNil(t, newS)
+		assert.Equal(t, newUA, newS.UserAgent)
+		assert.Equal(t, newIP, newS.ClientIP)
 	})
 }

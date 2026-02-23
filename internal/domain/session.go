@@ -69,7 +69,7 @@ func (s *Session) Revoke() error {
 	return nil
 }
 
-func (s *Session) Rotate(newToken string, newExpiresAt time.Time) (*Session, error) {
+func (s *Session) Rotate(newToken string, newExpiresAt time.Time, newUserAgent, newClientIP string) (*Session, error) {
 	if s.IsRevoked() {
 		return nil, ErrSessionRevoked
 	}
@@ -90,12 +90,22 @@ func (s *Session) Rotate(newToken string, newExpiresAt time.Time) (*Session, err
 	s.RevokedAt = &now
 	s.touch()
 
+	userAgent := newUserAgent
+	if userAgent == "" {
+		userAgent = s.UserAgent
+	}
+
+	clientIP := newClientIP
+	if clientIP == "" {
+		clientIP = s.ClientIP
+	}
+
 	newSession := &Session{
 		ID:        uuid.New(),
 		UserID:    s.UserID,
 		Token:     newToken,
-		UserAgent: s.UserAgent,
-		ClientIP:  s.ClientIP,
+		UserAgent: userAgent,
+		ClientIP:  clientIP,
 		ExpiresAt: newExpiresAt,
 		RevokedAt: nil,
 		CreatedAt: now,

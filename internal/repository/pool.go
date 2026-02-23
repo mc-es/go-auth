@@ -7,8 +7,8 @@ import (
 	"go-auth/internal/repository/gen"
 )
 
-func NewRepositories(pool *pgxpool.Pool) (domain.UserRepository, domain.SessionRepository) {
+func NewRepositories(pool *pgxpool.Pool) (domain.UserRepository, domain.SessionRepository, domain.TokenRepository) {
 	q := gen.New(pool)
 
-	return NewUserRepository(q), NewSessionRepository(q)
+	return NewUserRepository(q), NewSessionRepository(q), NewTokenRepository(q)
 }
