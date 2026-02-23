@@ -9,13 +9,17 @@ type PasswordHasher interface {
 	Compare(plainText string, hash Password) bool
 }
 
-type Claims struct {
-	UserID uuid.UUID
-	Role   Role
-	Type   TokenType
+type OpaqueTokenManager interface {
+	Generate() (string, error)
+	Hash(token string) (string, error)
 }
 
-type TokenManager interface {
-	Generate(claims Claims) (string, error)
-	Validate(token string) (*Claims, error)
+type AccessClaims struct {
+	UserID uuid.UUID
+	Role   Role
+}
+
+type AccessTokenManager interface {
+	Generate(claims AccessClaims) (string, error)
+	Validate(token string) (*AccessClaims, error)
 }

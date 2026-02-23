@@ -25,3 +25,8 @@ sql:
               import: "time"
               type: "Time"
               pointer: true
+          - column: "tokens.used_at"
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true

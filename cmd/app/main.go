@@ -8,6 +8,8 @@ import (
 	"go-auth/internal/bootstrap"
 	"go-auth/internal/config"
 	"go-auth/internal/repository"
+	"go-auth/internal/security"
+	"go-auth/internal/service"
 	"go-auth/pkg/logger"
 	_ "go-auth/pkg/logger/adapter/zap"
 	_ "go-auth/pkg/logger/adapter/zerolog"
@@ -41,15 +43,31 @@ func run() error {
 	}
 	defer pool.Close()
 
-	userRepo, sessionRepo := repository.NewRepositories(pool)
+	userRepo, sessionRepo, _ := repository.NewRepositories(pool)
+	passwordHasher := security.NewHasher(cfg.Security.HashCost)
+	opaqueTokenManager := security.NewOpaque(32)
 
-	_ = userRepo
-	_ = sessionRepo
+	accessTokenManager, err := security.NewJWT(cfg.Security.JWTSecret, cfg.App.Name, cfg.Security.AccessTTL)
+	if err != nil {
+		return fmt.Errorf("create access token manager: %w", err)
+	}
 
-	log.Info("Repository layer ready",
-		"user_repo", "postgres",
-		"session_repo", "postgres",
-	)
+	svc, err := service.NewService(&service.Config{
+		UserRepo:           userRepo,
+		SessionRepo:        sessionRepo,
+		PasswordHasher:     passwordHasher,
+		OpaqueTokenManager: opaqueTokenManager,
+		AccessTokenManager: accessTokenManager,
+		AccessTokenTTL:     cfg.Security.AccessTTL,
+		RefreshTokenTTL:    cfg.Security.RefreshTTL,
+	})
+	if err != nil {
+		return fmt.Errorf("create service: %w", err)
+	}
+
+	_ = svc
+
+	log.Info("Service layer is ready")
 
 	return nil
 }

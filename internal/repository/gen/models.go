@@ -22,6 +22,16 @@ type Session struct {
 	UpdatedAt time.Time
 }
 
+type Token struct {
+	ID        uuid.UUID
+	UserID    uuid.UUID
+	Token     string
+	Type      string
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
 type User struct {
 	ID         uuid.UUID
 	Username   string

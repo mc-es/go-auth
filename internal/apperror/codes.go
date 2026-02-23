@@ -12,9 +12,13 @@ const (
 
 // User error codes.
 const (
-	ErrCodeUserNotFound       Code = "USER_NOT_FOUND"
-	ErrCodeEmailAlreadyUsed   Code = "EMAIL_ALREADY_USED"
-	ErrCodePasswordTooWeak    Code = "PASSWORD_TOO_WEAK"
-	ErrCodeInvalidCredentials Code = "INVALID_CREDENTIALS" //nolint:gosec
-	ErrCodeUserBlocked        Code = "USER_BLOCKED"
+	ErrCodeUserNotFound        Code = "USER_NOT_FOUND"
+	ErrCodeUsernameAlreadyUsed Code = "USERNAME_ALREADY_USED"
+	ErrCodeEmailAlreadyUsed    Code = "EMAIL_ALREADY_USED"
+	ErrCodePasswordTooWeak     Code = "PASSWORD_TOO_WEAK"
+	ErrCodeInvalidCredentials  Code = "INVALID_CREDENTIALS" //nolint:gosec
+	ErrCodeUserBlocked         Code = "USER_BLOCKED"
+	ErrCodeSessionNotFound     Code = "SESSION_NOT_FOUND"
+	ErrCodeInvalidToken        Code = "INVALID_TOKEN"
+	ErrCodeTokenRequired       Code = "TOKEN_REQUIRED"
 )

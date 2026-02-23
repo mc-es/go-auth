@@ -20,17 +20,17 @@ FROM sessions
 WHERE id = $1
 LIMIT 1;
 
--- name: GetSessionByToken :one
-SELECT *
-FROM sessions
-WHERE token = $1
-LIMIT 1;
-
 -- name: GetSessionsByUserID :many
 SELECT *
 FROM sessions
 WHERE user_id = $1
 ORDER BY created_at DESC;
+
+-- name: GetSessionByToken :one
+SELECT *
+FROM sessions
+WHERE token = $1
+LIMIT 1;
 
 -- name: UpdateSession :one
 UPDATE sessions

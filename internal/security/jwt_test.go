@@ -20,65 +20,44 @@ const (
 
 func TestNewJWT(t *testing.T) {
 	tests := []struct {
-		name       string
-		secret     string
-		issuer     string
-		accessTTL  time.Duration
-		refreshTTL time.Duration
-		wantErr    error
+		name      string
+		secret    string
+		issuer    string
+		accessTTL time.Duration
+		wantErr   error
 	}{
 		{
-			name:       "ok",
-			secret:     jwtTestSecret,
-			issuer:     jwtTestIssuer,
-			accessTTL:  time.Hour,
-			refreshTTL: 24 * time.Hour,
-			wantErr:    nil,
+			name:      "ok",
+			secret:    jwtTestSecret,
+			issuer:    jwtTestIssuer,
+			accessTTL: time.Hour,
+			wantErr:   nil,
 		},
 		{
-			name:       "empty secret",
-			secret:     "",
-			issuer:     jwtTestIssuer,
-			accessTTL:  time.Hour,
-			refreshTTL: 24 * time.Hour,
-			wantErr:    domain.ErrTokenSecretRequired,
+			name:      "empty secret",
+			secret:    "",
+			issuer:    jwtTestIssuer,
+			accessTTL: time.Hour,
+			wantErr:   domain.ErrTokenSecretRequired,
 		},
 		{
-			name:       "zero access TTL",
-			secret:     jwtTestSecret,
-			issuer:     jwtTestIssuer,
-			accessTTL:  0,
-			refreshTTL: 24 * time.Hour,
-			wantErr:    domain.ErrTokenAccessTTLRequired,
+			name:      "zero access TTL",
+			secret:    jwtTestSecret,
+			issuer:    jwtTestIssuer,
+			accessTTL: 0,
+			wantErr:   domain.ErrTokenAccessTTLRequired,
 		},
 		{
-			name:       "negative access TTL",
-			secret:     jwtTestSecret,
-			issuer:     jwtTestIssuer,
-			accessTTL:  -time.Minute,
-			refreshTTL: 24 * time.Hour,
-			wantErr:    domain.ErrTokenAccessTTLRequired,
-		},
-		{
-			name:       "zero refresh TTL",
-			secret:     jwtTestSecret,
-			issuer:     jwtTestIssuer,
-			accessTTL:  time.Hour,
-			refreshTTL: 0,
-			wantErr:    domain.ErrTokenRefreshTTLRequired,
-		},
-		{
-			name:       "negative refresh TTL",
-			secret:     jwtTestSecret,
-			issuer:     jwtTestIssuer,
-			accessTTL:  time.Hour,
-			refreshTTL: -time.Hour,
-			wantErr:    domain.ErrTokenRefreshTTLRequired,
+			name:      "negative access TTL",
+			secret:    jwtTestSecret,
+			issuer:    jwtTestIssuer,
+			accessTTL: -time.Minute,
+			wantErr:   domain.ErrTokenAccessTTLRequired,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := security.NewJWT(tt.secret, tt.issuer, tt.accessTTL, tt.refreshTTL)
+			got, err := security.NewJWT(tt.secret, tt.issuer, tt.accessTTL)
 			if tt.wantErr != nil {
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, tt.wantErr)
@@ -98,13 +77,12 @@ func TestJWTRoundTrip(t *testing.T) {
 	role, err := domain.NewRole(domain.RoleUser)
 	require.NoError(t, err)
 
-	claims := domain.Claims{
+	claims := domain.AccessClaims{
 		UserID: userID,
 		Role:   role,
-		Type:   domain.TokenTypeAccess,
 	}
 
-	m, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Hour, 24*time.Hour)
+	m, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Hour)
 	require.NoError(t, err)
 	token, err := m.Generate(claims)
 	require.NoError(t, err)
@@ -114,11 +92,10 @@ func TestJWTRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, claims.UserID, got.UserID)
 	assert.Equal(t, claims.Role.String(), got.Role.String())
-	assert.Equal(t, claims.Type, got.Type)
 }
 
 func TestJWTInvalidToken(t *testing.T) {
-	m, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Hour, 24*time.Hour)
+	m, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Hour)
 	require.NoError(t, err)
 
 	_, err = m.Validate("invalid.jwt.token")
@@ -131,18 +108,17 @@ func TestJWTInvalidToken(t *testing.T) {
 func TestJWTWrongSecret(t *testing.T) {
 	userID := uuid.MustParse(userID)
 	role, _ := domain.NewRole(domain.RoleAdmin)
-	claims := domain.Claims{
+	claims := domain.AccessClaims{
 		UserID: userID,
 		Role:   role,
-		Type:   domain.TokenTypeAccess,
 	}
 
-	gen, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Hour, 24*time.Hour)
+	gen, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Hour)
 	require.NoError(t, err)
 	token, err := gen.Generate(claims)
 	require.NoError(t, err)
 
-	validator, err := security.NewJWT("different-secret-32-bytes-long!!!!!", jwtTestIssuer, time.Hour, 24*time.Hour)
+	validator, err := security.NewJWT("different-secret-32-bytes-long!!!!!", jwtTestIssuer, time.Hour)
 	require.NoError(t, err)
 	_, err = validator.Validate(token)
 	assert.Error(t, err)
@@ -151,13 +127,12 @@ func TestJWTWrongSecret(t *testing.T) {
 func TestJWTExpiredToken(t *testing.T) {
 	userID := uuid.MustParse(userID)
 	role, _ := domain.NewRole(domain.RoleUser)
-	claims := domain.Claims{
+	claims := domain.AccessClaims{
 		UserID: userID,
 		Role:   role,
-		Type:   domain.TokenTypeAccess,
 	}
 
-	m, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Millisecond, 24*time.Hour)
+	m, err := security.NewJWT(jwtTestSecret, jwtTestIssuer, time.Millisecond)
 	require.NoError(t, err)
 	token, err := m.Generate(claims)
 	require.NoError(t, err)

@@ -12,21 +12,19 @@ import (
 )
 
 type jwtManager struct {
-	secret     []byte
-	issuer     string
-	accessTTL  time.Duration
-	refreshTTL time.Duration
+	secret    []byte
+	issuer    string
+	accessTTL time.Duration
 }
 
 type jwtClaims struct {
 	jwt.RegisteredClaims
 
-	UserID    string `json:"user_id"`
-	Role      string `json:"role"`
-	TokenType string `json:"token_type"`
+	UserID string `json:"user_id"`
+	Role   string `json:"role"`
 }
 
-func NewJWT(secret, issuer string, accessTTL, refreshTTL time.Duration) (domain.TokenManager, error) {
+func NewJWT(secret, issuer string, accessTTL time.Duration) (domain.AccessTokenManager, error) {
 	if secret == "" {
 		return nil, domain.ErrTokenSecretRequired
 	}
@@ -35,45 +33,26 @@ func NewJWT(secret, issuer string, accessTTL, refreshTTL time.Duration) (domain.
 		return nil, domain.ErrTokenAccessTTLRequired
 	}
 
-	if refreshTTL <= 0 {
-		return nil, domain.ErrTokenRefreshTTLRequired
-	}
-
 	return &jwtManager{
-		secret:     []byte(secret),
-		issuer:     issuer,
-		accessTTL:  accessTTL,
-		refreshTTL: refreshTTL,
+		secret:    []byte(secret),
+		issuer:    issuer,
+		accessTTL: accessTTL,
 	}, nil
 }
 
-func (m *jwtManager) Generate(claims domain.Claims) (string, error) {
+func (m *jwtManager) Generate(claims domain.AccessClaims) (string, error) {
 	now := time.Now().UTC()
-
-	var ttl time.Duration
-
-	switch claims.Type {
-	case domain.TokenTypeRefresh:
-		ttl = m.refreshTTL
-	case domain.TokenTypeAccess, domain.TokenTypeVerifyEmail, domain.TokenTypePasswordReset:
-		ttl = m.accessTTL
-	default:
-		return "", domain.ErrTokenTypeInvalid
-	}
-
-	exp := now.Add(ttl)
 
 	rc := jwt.RegisteredClaims{
 		Issuer:    m.issuer,
 		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(exp),
+		ExpiresAt: jwt.NewNumericDate(now.Add(m.accessTTL)),
 		NotBefore: jwt.NewNumericDate(now),
 	}
 	claimsData := jwtClaims{
 		RegisteredClaims: rc,
 		UserID:           claims.UserID.String(),
 		Role:             claims.Role.String(),
-		TokenType:        claims.Type.String(),
 	}
 
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsData)
@@ -86,7 +65,7 @@ func (m *jwtManager) Generate(claims domain.Claims) (string, error) {
 	return signed, nil
 }
 
-func (m *jwtManager) Validate(token string) (*domain.Claims, error) {
+func (m *jwtManager) Validate(token string) (*domain.AccessClaims, error) {
 	parsed, err := jwt.ParseWithClaims(token, &jwtClaims{}, m.keyFunc, jwt.WithIssuer(m.issuer))
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
@@ -112,12 +91,7 @@ func (m *jwtManager) keyFunc(t *jwt.Token) (any, error) {
 	return m.secret, nil
 }
 
-func (m *jwtManager) parseClaims(claims *jwtClaims) (*domain.Claims, error) {
-	tokenType := domain.TokenType(claims.TokenType)
-	if !tokenType.IsValid() {
-		return nil, domain.ErrTokenTypeInvalid
-	}
-
+func (m *jwtManager) parseClaims(claims *jwtClaims) (*domain.AccessClaims, error) {
 	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
 		return nil, domain.ErrTokenInvalid
@@ -128,9 +102,8 @@ func (m *jwtManager) parseClaims(claims *jwtClaims) (*domain.Claims, error) {
 		return nil, domain.ErrRoleInvalid
 	}
 
-	return &domain.Claims{
+	return &domain.AccessClaims{
 		UserID: userID,
 		Role:   role,
-		Type:   tokenType,
 	}, nil
 }
