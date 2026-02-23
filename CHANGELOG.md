@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.0](https://github.com/mc-es/go-auth/compare/v0.8.0...v0.9.0) (2026-02-23)
+
+
+### ✨ Features
+
+* **security:** implement opaque token management with generation and hashing functionality ([6c4e2e1](https://github.com/mc-es/go-auth/commit/6c4e2e1d590cd4c695b925ae96aaadc5cb1076e5))
+* **service:** implement user registration, login, logout and refresh functionality with session management ([83a3082](https://github.com/mc-es/go-auth/commit/83a3082e54a402080144d84eb6425b490c46d36e))
+* **session:** add GetByToken method to SessionRepository and corresponding SQL query for session retrieval by token ([30621a7](https://github.com/mc-es/go-auth/commit/30621a7abf83a0fe0fc1a370854ceb7f024ecef2))
+* **token:** add token management with repository, domain, and SQLC integration; add token creation and retrieval ([bc678cc](https://github.com/mc-es/go-auth/commit/bc678cc77b8ee2fc83f2488815d8c44d6bcdd805))
+
 ## [0.8.0](https://github.com/mc-es/go-auth/compare/v0.7.0...v0.8.0) (2026-02-21)
 
 
