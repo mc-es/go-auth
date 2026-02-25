@@ -24,10 +24,11 @@ func validMinimalConfig() *config.Config {
 			ShutdownTO: 30 * time.Second,
 		},
 		CORS: config.CORS{
-			Origins: []string{"http://localhost:3000"},
-			Methods: []string{"GET", "POST"},
-			Headers: []string{"Content-Type"},
-			MaxAge:  600,
+			Origins:    []string{"http://localhost:3000"},
+			Methods:    []string{"GET", "POST"},
+			Headers:    []string{"Content-Type"},
+			MaxAge:     600,
+			AllowCreds: true,
 		},
 		RateLimit: config.RateLimit{
 			Limit:  100,

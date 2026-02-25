@@ -14,17 +14,21 @@ server:
 
 cors:
   origins:
-    - http://localhost:3000
+    - "*"
   methods:
     - GET
     - POST
     - PUT
+    - PATCH
     - DELETE
+    - HEAD
     - OPTIONS
   headers:
     - Content-Type
     - Authorization
+    - Accept
   max_age: 600
+  allow_creds: false
 
 rate_limit:
   limit: 500

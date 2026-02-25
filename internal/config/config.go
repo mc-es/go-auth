@@ -34,10 +34,11 @@ type Server struct {
 }
 
 type CORS struct {
-	Origins []string `mapstructure:"origins" validate:"required,min=1,dive,http_url|https_url"`
-	Methods []string `mapstructure:"methods" validate:"required,min=1,dive,oneof=GET POST PUT DELETE OPTIONS"`
-	Headers []string `mapstructure:"headers" validate:"required,min=1,dive,oneof=Content-Type Authorization"`
-	MaxAge  int      `mapstructure:"max_age" validate:"required,min=0,max=86400"`
+	Origins    []string `mapstructure:"origins"     validate:"required,min=1,dive"`
+	Methods    []string `mapstructure:"methods"     validate:"required,min=1,dive"`
+	Headers    []string `mapstructure:"headers"     validate:"required,min=1,dive"`
+	MaxAge     int      `mapstructure:"max_age"     validate:"required,min=0,max=86400"`
+	AllowCreds bool     `mapstructure:"allow_creds"`
 }
 
 type RateLimit struct {

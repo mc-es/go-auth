@@ -85,7 +85,8 @@
         "origins",
         "methods",
         "headers",
-        "max_age"
+        "max_age",
+        "allow_creds"
       ],
       "properties": {
         "origins": {
@@ -93,8 +94,7 @@
           "description": "Allowed origin URLs.",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "format": "uri"
+            "type": "string"
           }
         },
         "methods": {
@@ -107,7 +107,9 @@
               "GET",
               "POST",
               "PUT",
+              "PATCH",
               "DELETE",
+              "HEAD",
               "OPTIONS"
             ]
           }
@@ -117,11 +119,7 @@
           "description": "Allowed request headers.",
           "minItems": 1,
           "items": {
-            "type": "string",
-            "enum": [
-              "Content-Type",
-              "Authorization"
-            ]
+            "type": "string"
           }
         },
         "max_age": {
@@ -129,6 +127,11 @@
           "description": "CORS preflight cache duration in seconds (0-86400).",
           "minimum": 0,
           "maximum": 86400
+        },
+        "allow_creds": {
+          "type": "boolean",
+          "description": "Allow credentials in CORS requests.",
+          "default": false
         }
       },
       "additionalProperties": false
