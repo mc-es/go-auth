@@ -1,53 +1,77 @@
 package middleware
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/time/rate"
 
 	"go-auth/internal/config"
 )
 
-func RateLimit(cfg config.RateLimit) func(next http.Handler) http.Handler {
-	if cfg.Limit <= 0 {
-		return func(next http.Handler) http.Handler { return next }
-	}
+type client struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
 
-	tokensPerSec := float64(cfg.Limit) / cfg.Period.Seconds()
+func RateLimit(ctx context.Context, cfg config.RateLimit) func(next http.Handler) http.Handler {
+	tokensPerSec := rate.Limit(float64(cfg.Limit) / cfg.Period.Seconds())
 	burst := max(cfg.Limit, 1)
 
 	var (
-		limiters sync.Map
-		mu       sync.Mutex
+		mu      sync.Mutex
+		clients = make(map[string]*client)
 	)
 
-	getLimiter := func(key string) *rate.Limiter {
-		if v, ok := limiters.Load(key); ok {
-			return v.(*rate.Limiter)
+	go func() {
+		ticker := time.NewTicker(cfg.Period)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				mu.Lock()
+
+				for ip, c := range clients {
+					if time.Since(c.lastSeen) > cfg.Period*3 {
+						delete(clients, ip)
+					}
+				}
+
+				mu.Unlock()
+			case <-ctx.Done():
+				return
+			}
 		}
-
-		mu.Lock()
-		defer mu.Unlock()
-
-		if v, ok := limiters.Load(key); ok {
-			return v.(*rate.Limiter)
-		}
-
-		lim := rate.NewLimiter(rate.Limit(tokensPerSec), burst)
-		limiters.Store(key, lim)
-
-		return lim
-	}
+	}()
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			key := clientIP(r)
+			ip := clientIP(r)
 
-			lim := getLimiter(key)
-			if !lim.Allow() {
-				w.Header().Set("Retry-After", "60")
+			mu.Lock()
+
+			cl, exists := clients[ip]
+			if !exists {
+				cl = &client{
+					limiter: rate.NewLimiter(tokensPerSec, burst),
+				}
+				clients[ip] = cl
+			}
+
+			cl.lastSeen = time.Now()
+
+			mu.Unlock()
+
+			if !cl.limiter.Allow() {
+				retryAfter := fmt.Sprintf("%.0f", cfg.Period.Seconds())
+				w.Header().Set("Retry-After", retryAfter)
+
 				http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 
 				return
@@ -59,18 +83,18 @@ func RateLimit(cfg config.RateLimit) func(next http.Handler) http.Handler {
 }
 
 func clientIP(r *http.Request) string {
-	if x := r.Header.Get("X-Real-IP"); x != "" {
-		return strings.TrimSpace(strings.Split(x, ",")[0])
-	}
-
 	if x := r.Header.Get("X-Forwarded-For"); x != "" {
 		return strings.TrimSpace(strings.Split(x, ",")[0])
 	}
 
-	addr := r.RemoteAddr
-	if i := strings.LastIndex(addr, ":"); i >= 0 {
-		addr = addr[:i]
+	if x := r.Header.Get("X-Real-IP"); x != "" {
+		return strings.TrimSpace(strings.Split(x, ",")[0])
 	}
 
-	return addr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+
+	return ip
 }

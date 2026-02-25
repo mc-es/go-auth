@@ -68,7 +68,12 @@ func run() error {
 
 	authHandler := handler.NewAuthHandler(svc)
 	healthHandler := handler.NewHealthHandler()
-	router := handler.NewRouter(authHandler, healthHandler, cfg, log)
+	router := handler.NewRouter(ctx, handler.Deps{
+		Auth:   authHandler,
+		Cfg:    cfg,
+		Health: healthHandler,
+		Log:    log,
+	})
 
 	if err := bootstrap.RunServer(cfg, router, log); err != nil {
 		return fmt.Errorf("server: %w", err)
